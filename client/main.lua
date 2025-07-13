@@ -459,7 +459,7 @@ AddEventHandler('hackerjob:updateStats', function(stats)
     print("  Next Level XP: " .. tostring(stats.nextLevelXP))
     print("  Level Name: " .. tostring(stats.levelName))
     
-    -- Update laptop UI if open
+    -- Always try to update laptop UI if open
     if exports['qb-hackerjob']:IsLaptopOpen() then
         print("^2[qb-hackerjob] ^7Laptop is open, sending NUI message...")
         SendNUIMessage({
@@ -470,6 +470,18 @@ AddEventHandler('hackerjob:updateStats', function(stats)
             nextLevelXP = stats.nextLevelXP,
             levelName = stats.levelName
         })
+        
+        -- Also force refresh the stats display with a small delay
+        SetTimeout(100, function()
+            SendNUIMessage({
+                action = 'updateHackerStats',
+                type = 'updateHackerStats',
+                level = stats.level,
+                xp = stats.xp,
+                nextLevelXP = stats.nextLevelXP,
+                levelName = stats.levelName
+            })
+        end)
     else
         print("^3[qb-hackerjob] ^7Laptop is not open, skipping UI update")
     end

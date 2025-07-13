@@ -802,6 +802,24 @@ function hideActionOverlay() {
     $('.action-overlay').remove();
 }
 
+// Function to show loading line
+function showLoadingLine() {
+    // Create loading line if it doesn't exist
+    if ($('.loading-line').length === 0) {
+        $('body').append(`
+            <div class="loading-line">
+                <div class="loading-progress"></div>
+            </div>
+        `);
+    }
+    $('.loading-line').show();
+}
+
+// Function to hide loading line
+function hideLoadingLine() {
+    $('.loading-line').hide();
+}
+
 // Function to perform actions on vehicles
 function performVehicleAction(action, plate) {
     console.log(`Performing ${action} on vehicle ${plate}`);
@@ -814,16 +832,23 @@ function performVehicleAction(action, plate) {
     }
 
     // Regular actions continue as normal
+    // Show loading line
+    showLoadingLine();
+    
     // Normal action handling
     $.post('https://qb-hackerjob/performVehicleAction', JSON.stringify({
         action: action,
         plate: plate
     }), function(response) {
+        hideLoadingLine();
         if (response.success) {
             showActionSuccess(action, plate);
         } else {
             showActionFailed(action, plate);
         }
+    }).fail(function() {
+        hideLoadingLine();
+        showActionFailed(action, plate);
     });
 }
 
@@ -1123,6 +1148,7 @@ window.addEventListener('message', function(event) {
         updateBatteryDisplay(data.level, data.charging);
     } else if (data.action === 'updateHackerStats' || data.type === 'updateHackerStats') {
         console.log('Received hacker stats update:', data);
+        console.log('Updating display with:', data.level, data.xp, data.nextLevelXP, data.levelName);
 
         // Update global vars (might still be useful elsewhere, e.g., initial load)
         currentLevel = data.level;
@@ -1132,6 +1158,11 @@ window.addEventListener('message', function(event) {
         
         // Pass the NEW data directly into the display function
         updateHackerStatsDisplay(data.level, data.xp, data.nextLevelXP, data.levelName);
+        
+        // Force refresh the DOM elements
+        setTimeout(() => {
+            updateHackerStatsDisplay(data.level, data.xp, data.nextLevelXP, data.levelName);
+        }, 50);
     } else if (data.action === 'phoneTrackResult') {
         // Handle phone track result
     } else if (data.action === 'radioDecryptResult') {
