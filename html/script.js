@@ -1315,11 +1315,11 @@ function setupDragFunctionality() {
     document.addEventListener('touchend', dragEnd);
 
     function dragStart(e) {
-        // Only allow dragging from the top 20px (header area)
-        const rect = laptopContainer.getBoundingClientRect();
-        const y = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
+        // Allow dragging from taskbar area only (avoid interfering with app content)
+        const target = e.target;
+        const isTaskbarArea = target.closest('.taskbar') || target.classList.contains('taskbar');
         
-        if (y - rect.top > 20) return; // Only drag from header area
+        if (!isTaskbarArea) return; // Only drag from taskbar area
         
         if (e.type === 'touchstart') {
             initialX = e.touches[0].clientX - xOffset;
@@ -1329,10 +1329,8 @@ function setupDragFunctionality() {
             initialY = e.clientY - yOffset;
         }
 
-        if (e.target === laptopContainer || e.target.tagName === 'BODY') {
-            isDragging = true;
-            laptopContainer.style.transition = 'none';
-        }
+        isDragging = true;
+        laptopContainer.style.transition = 'none';
     }
 
     function dragMove(e) {

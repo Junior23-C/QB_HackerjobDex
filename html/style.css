@@ -90,19 +90,6 @@ body {
     border: 1px solid var(--border-color);
 }
 
-/* Draggable header */
-#laptop-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 20px;
-    background: linear-gradient(90deg, var(--accent-color), var(--accent-color-dark));
-    cursor: move;
-    z-index: 1000;
-    border-radius: 12px 12px 0 0;
-}
 
 #laptop-container.visible {
     opacity: 1;
