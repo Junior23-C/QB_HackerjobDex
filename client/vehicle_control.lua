@@ -36,6 +36,8 @@ end
 
 -- Function to perform various vehicle actions
 function PerformVehicleAction(action, plate)
+    print("^1[qb-hackerjob:vehicle_control] ^7PerformVehicleAction called with action: " .. tostring(action) .. ", plate: " .. tostring(plate))
+    
     -- Check if player is in cooldown
     if controlCooldown then
         QBCore.Functions.Notify("System cooling down, please wait", "error")

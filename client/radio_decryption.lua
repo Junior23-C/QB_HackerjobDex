@@ -95,7 +95,7 @@ function DecryptRadioFrequency(frequency, isCommand)
             QBCore.Functions.Notify(Lang:t('success.radio_decrypted'), "success")
             
             -- Award XP and log success
-            HandleHackSuccess('radioDecrypt', frequency, 'Successfully decrypted radio signal')
+            TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'radioDecrypt', frequency, 'Successfully decrypted radio signal')
             
             -- Return data for external use
             isDecrypting = false
@@ -120,7 +120,7 @@ function DecryptRadioFrequency(frequency, isCommand)
             QBCore.Functions.Notify(Lang:t('error.radio_signal_not_found'), "error")
             
             -- Log failure
-            HandleHackFailure('radioDecrypt', frequency, 'Failed to decrypt radio signal')
+            TriggerEvent('qb-hackerjob:client:handleHackFailure', 'radioDecrypt', frequency, 'Failed to decrypt radio signal')
             
             isDecrypting = false
             return false

@@ -93,7 +93,7 @@ RegisterNUICallback('phoneHackCaptchaComplete', function(data, cb)
         })
         
         -- Handle failure
-        HandleHackFailure('phoneHack', currentPhoneNumber, 'Failed at captcha stage')
+        TriggerEvent('qb-hackerjob:client:handleHackFailure', 'phoneHack', currentPhoneNumber, 'Failed at captcha stage')
         
         -- Alert user
         QBCore.Functions.Notify('Security system detected your intrusion attempt!', 'error')
@@ -123,7 +123,7 @@ RegisterNUICallback('phoneHackPasswordComplete', function(data, cb)
                 })
                 
                 -- Handle success
-                HandleHackSuccess('phoneHack', currentPhoneNumber, 'Successfully hacked phone')
+                TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'phoneHack', currentPhoneNumber, 'Successfully hacked phone')
                 
                 -- Notify the player
                 QBCore.Functions.Notify('Phone hack successful! Accessing call and message logs...', 'success')
@@ -134,7 +134,7 @@ RegisterNUICallback('phoneHackPasswordComplete', function(data, cb)
                 })
                 
                 -- Handle partial failure
-                HandleHackFailure('phoneHack', currentPhoneNumber, 'Failed to retrieve phone data')
+                TriggerEvent('qb-hackerjob:client:handleHackFailure', 'phoneHack', currentPhoneNumber, 'Failed to retrieve phone data')
             end
         end, currentPhoneNumber)
     else
@@ -147,7 +147,7 @@ RegisterNUICallback('phoneHackPasswordComplete', function(data, cb)
         })
         
         -- Handle failure
-        HandleHackFailure('phoneHack', currentPhoneNumber, 'Failed at password cracking stage')
+        TriggerEvent('qb-hackerjob:client:handleHackFailure', 'phoneHack', currentPhoneNumber, 'Failed at password cracking stage')
         
         -- Alert user
         QBCore.Functions.Notify('Failed to crack the password! Too many incorrect attempts.', 'error')

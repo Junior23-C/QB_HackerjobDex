@@ -94,7 +94,7 @@ function TrackPhoneNumber(phone, isCommand)
             QBCore.Functions.Notify(Lang:t('success.phone_tracked'), "success")
             
             -- Award XP and log success
-            HandleHackSuccess('phoneTrack', phone, 'Successfully tracked phone')
+            TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'phoneTrack', phone, 'Successfully tracked phone')
             
             -- Return data for external use
             isTracking = false
@@ -110,7 +110,7 @@ function TrackPhoneNumber(phone, isCommand)
             QBCore.Functions.Notify(Lang:t('error.no_signal'), "error")
             
             -- Log failure
-            HandleHackFailure('phoneTrack', phone, 'Failed to track phone (no signal)')
+            TriggerEvent('qb-hackerjob:client:handleHackFailure', 'phoneTrack', phone, 'Failed to track phone (no signal)')
             
             isTracking = false
             return false
