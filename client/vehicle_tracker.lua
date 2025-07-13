@@ -30,8 +30,9 @@ function AttemptInstallTracker(vehicle, plate)
                 -- Track the vehicle
                 TrackVehicle(vehicle, plate)
                 
-                -- Award XP for successful vehicle tracking
-                TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleTrack', plate, 'Vehicle tracking successful')
+                -- Award XP and log activity
+                exports['qb-hackerjob']:AwardXP('vehicleTrack')
+                TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleTrack', plate, true, 'Vehicle tracking successful')
                 
                 isTrackingVehicle = false
                 
@@ -117,8 +118,9 @@ function TrackVehicle(veh, plate)
     print("^2[qb-hackerjob] ^7Tracking data saved, tracking active for " .. math.floor(Config.VehicleTracking.trackDuration / 60000) .. " minutes")
     QBCore.Functions.Notify("Vehicle tracking active for " .. math.floor(Config.VehicleTracking.trackDuration / 60000) .. " minutes", "success")
     
-    -- Award XP and log success
-    TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleTrack', plate, 'Successfully installed GPS tracker')
+    -- Award XP and log activity
+    exports['qb-hackerjob']:AwardXP('vehicleTrack')
+    TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleTrack', plate, true, 'Successfully installed GPS tracker')
     
     -- Flash the blip to make it more noticeable
     SetBlipFlashes(blip, true)
@@ -196,7 +198,7 @@ CreateThread(function()
                 QBCore.Functions.Notify("Failed to establish GPS connection", "error")
                 print("^1[qb-hackerjob] ^7Failed to create blip even at coordinates")
                 -- Log failure
-                TriggerEvent('qb-hackerjob:client:handleHackFailure', 'vehicleTrack', plate, 'Failed to create blip')
+                TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleTrack', plate, false, 'Failed to create blip')
                 return
             end
         end
@@ -252,7 +254,7 @@ function TrackVehicleFromLaptop(plate)
         if not foundVehicle then
             QBCore.Functions.Notify("Cannot find vehicle with plate " .. plate .. " nearby", "error")
             -- Log failure
-            TriggerEvent('qb-hackerjob:client:handleHackFailure', 'vehicleTrack', plate, 'Vehicle not found nearby')
+            TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleTrack', plate, false, 'Vehicle not found nearby')
             return
         end
         

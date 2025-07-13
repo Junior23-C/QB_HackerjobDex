@@ -178,8 +178,9 @@ function PerformLookupQuery(plate)
                 data = vehicleData
             })
             
-            -- Award XP for successful lookup
-            TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'plateLookup', plate, 'Successfully looked up vehicle')
+            -- Award XP and log activity
+            exports['qb-hackerjob']:AwardXP('plateLookup')
+            TriggerServerEvent('qb-hackerjob:server:logActivity', 'plateLookup', plate, true, 'Successfully looked up vehicle')
             
             -- Return data for external use
             return vehicleData
@@ -188,7 +189,7 @@ function PerformLookupQuery(plate)
             QBCore.Functions.Notify(result.message or Lang:t('error.vehicle_not_found'), "error")
             
             -- Log failure
-            TriggerEvent('qb-hackerjob:client:handleHackFailure', 'plateLookup', plate, result.message or 'Vehicle not found')
+            TriggerServerEvent('qb-hackerjob:server:logActivity', 'plateLookup', plate, false, result.message or 'Vehicle not found')
             
             return nil
         end

@@ -93,8 +93,9 @@ function TrackPhoneNumber(phone, isCommand)
             
             QBCore.Functions.Notify(Lang:t('success.phone_tracked'), "success")
             
-            -- Award XP and log success
-            TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'phoneTrack', phone, 'Successfully tracked phone')
+            -- Award XP and log activity
+            exports['qb-hackerjob']:AwardXP('phoneTrack')
+            TriggerServerEvent('qb-hackerjob:server:logActivity', 'phoneTrack', phone, true, 'Successfully tracked phone')
             
             -- Return data for external use
             isTracking = false
@@ -110,7 +111,7 @@ function TrackPhoneNumber(phone, isCommand)
             QBCore.Functions.Notify(Lang:t('error.no_signal'), "error")
             
             -- Log failure
-            TriggerEvent('qb-hackerjob:client:handleHackFailure', 'phoneTrack', phone, 'Failed to track phone (no signal)')
+            TriggerServerEvent('qb-hackerjob:server:logActivity', 'phoneTrack', phone, false, 'Failed to track phone (no signal)')
             
             isTracking = false
             return false

@@ -36,8 +36,6 @@ end
 
 -- Function to perform various vehicle actions
 function PerformVehicleAction(action, plate)
-    print("^1[qb-hackerjob:vehicle_control] ^7PerformVehicleAction called with action: " .. tostring(action) .. ", plate: " .. tostring(plate))
-    print("^1[qb-hackerjob:vehicle_control] ^7THIS DEBUG MESSAGE SHOULD APPEAR IF FUNCTION IS CALLED!")
     
     -- Check if player is in cooldown
     if controlCooldown then
@@ -85,9 +83,9 @@ function PerformVehicleAction(action, plate)
         -- Notify vehicle owner/driver
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been locked remotely")
         
-        -- Award XP and log success using proper client event
-        print("^2[qb-hackerjob:vehicle_control] ^7About to trigger XP event for lock action")
-        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully locked vehicle')
+        -- Award XP and log activity
+        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully locked vehicle')
         
         return true
         
@@ -110,9 +108,9 @@ function PerformVehicleAction(action, plate)
         -- Notify vehicle owner/driver
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been unlocked remotely")
         
-        -- Award XP and log success using proper client event
-        print("^2[qb-hackerjob:vehicle_control] ^7About to trigger XP event for unlock action")
-        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully unlocked vehicle')
+        -- Award XP and log activity
+        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully unlocked vehicle')
         
         return true
         
@@ -131,8 +129,9 @@ function PerformVehicleAction(action, plate)
             TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle engine has been remotely enabled")
         end
         
-        -- Award XP and log success using proper client event
-        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully toggled vehicle engine')
+        -- Award XP and log activity
+        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully toggled vehicle engine')
         
         return true
         
@@ -178,9 +177,9 @@ function PerformVehicleAction(action, plate)
         
         print("^2[qb-hackerjob] ^7Vehicle brakes permanently disabled for plate: " .. plate)
         
-        -- Award XP and log success using proper client event
-        print("^2[qb-hackerjob:vehicle_control] ^7About to trigger XP event for brake disable action")
-        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully disabled vehicle brakes')
+        -- Award XP and log activity
+        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully disabled vehicle brakes')
         
         -- Create thread to maintain disabled brakes until vehicle is repaired
         CreateThread(function()
@@ -278,14 +277,15 @@ function PerformVehicleAction(action, plate)
             end
         end)
         
-        -- Award XP and log success using proper client event
-        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully forced vehicle acceleration')
+        -- Award XP and log activity
+        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully forced vehicle acceleration')
         
         return true
     end
     
     -- Log failure if action wasn't handled
-    TriggerEvent('qb-hackerjob:client:handleHackFailure', 'vehicleControl', plate, 'Unknown or failed vehicle action: ' .. action)
+    TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, false, 'Unknown or failed vehicle action: ' .. action)
     return false
 end
 

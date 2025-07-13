@@ -495,8 +495,9 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             return
         end
         
-        -- Get updated hacker level *before* opening NUI  
-        QBCore.Functions.TriggerCallback('qb-hackerjob:server:getHackerLevel', function(level, xp, nextLevelXP)
+        -- Get updated hacker stats before opening NUI  
+        QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
+            local level, xp, nextLevelXP = stats.level, stats.xp, stats.nextLevelXP
             -- Battery check
             if Config.Battery.enabled then
                 local PlayerData = QBCore.Functions.GetPlayerData()
@@ -510,16 +511,7 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             end
             
             -- Open laptop with XP data
-            local xpData = {
-                level = level,
-                xp = xp,
-                nextLevelXP = nextLevelXP,
-                levelName = Config.LevelNames[level] or "Unknown Level",
-                features = Config.LevelUnlocks[level] or {}
-            }
-            
-            print("^2[qb-hackerjob] ^7Opening laptop with fetched XP data:", json.encode(xpData))
-            OpenHackerLaptop(xpData)
+            OpenHackerLaptop(stats)
         end)
     end)
 end)
@@ -773,7 +765,6 @@ RegisterNUICallback('getNearbyVehicles', function(_, cb)
 end)
 
 RegisterNUICallback('performVehicleAction', function(data, cb)
-    print("^1[qb-hackerjob:laptop] ^7performVehicleAction NUI callback triggered with action: " .. tostring(data.action) .. ", plate: " .. tostring(data.plate))
     updateLastInteraction()
     
     -- Map action to drain type
@@ -792,39 +783,11 @@ RegisterNUICallback('performVehicleAction', function(data, cb)
     -- Apply battery drain
     drainBattery(drainType)
     
-    -- Log the action
-    print("^2[qb-hackerjob] ^7Vehicle action: " .. data.action .. " on " .. data.plate .. ", drain type: " .. drainType)
-    
     -- Perform the actual vehicle action
     if data.action and data.plate then
-        print("^3[qb-hackerjob:laptop] ^7About to call PerformVehicleAction export with action: " .. tostring(data.action) .. ", plate: " .. tostring(data.plate))
-        local resourceName = GetCurrentResourceName()
-        print("^3[qb-hackerjob:laptop] ^7Current resource name: " .. tostring(resourceName))
-        
-        -- Try calling the export with error handling
-        local success = false
-        local status, result = pcall(function()
-            return exports[resourceName]:PerformVehicleAction(data.action, data.plate)
-        end)
-        
-        if status then
-            success = result
-            print("^2[qb-hackerjob:laptop] ^7PerformVehicleAction export succeeded, returned: " .. tostring(success))
-        else
-            print("^1[qb-hackerjob:laptop] ^7PerformVehicleAction export failed with error: " .. tostring(result))
-            -- Try calling the function directly as fallback
-            print("^3[qb-hackerjob:laptop] ^7Trying direct function call as fallback...")
-            status, result = pcall(PerformVehicleAction, data.action, data.plate)
-            if status then
-                success = result
-                print("^2[qb-hackerjob:laptop] ^7Direct function call succeeded, returned: " .. tostring(success))
-            else
-                print("^1[qb-hackerjob:laptop] ^7Direct function call also failed: " .. tostring(result))
-            end
-        end
+        local success = exports[GetCurrentResourceName()]:PerformVehicleAction(data.action, data.plate)
         cb({success = success})
     else
-        print("^1[qb-hackerjob:laptop] ^7Missing action or plate data!")
         cb({success = false})
     end
 end)

@@ -6,6 +6,9 @@ local playerLoaded = false
 local currentJob = nil
 local vendorPed = nil
 local vendorBlip = nil
+local currentHackerLevel = 1
+local currentHackerXP = 0
+local xpForNextLevel = 100
 local traceLevel = 0
 local isCharging = false
 
@@ -18,6 +21,8 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     playerLoaded = true
     -- Re-register usable item on player loaded
     SetupUsableItem()
+    -- Get hacker level
+    GetHackerLevel()
     -- Get trace level
     traceLevel = PlayerData.metadata.tracelevel or 0
 end)
@@ -88,7 +93,7 @@ CreateThread(function()
                 if hasItem then
                     TriggerEvent('qb-hackerjob:client:openLaptop')
                 else
-                    QBCore.Functions.Notify('You don\\'t have a hacking laptop', "error")
+                    QBCore.Functions.Notify('You don\'t have a hacking laptop', "error")
                 end
             end, Config.LaptopItem)
         else
@@ -368,6 +373,38 @@ RegisterCommand('togglehackerblip', function()
     ToggleVendorBlip()
 end, false)
 
+-- Debug command to test XP system
+RegisterCommand('testxp', function()
+    print("^2[qb-hackerjob] ^7Testing XP system...")
+    TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'plateLookup', 'TEST123', 'Testing XP system')
+end, false)
+
+-- Debug command to test vehicle control XP
+RegisterCommand('testvehiclexp', function()
+    print("^2[qb-hackerjob] ^7Testing vehicle control XP system...")
+    TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', 'TEST123', 'Testing vehicle control XP')
+end, false)
+
+-- Debug command to check current XP
+RegisterCommand('checkxpclient', function()
+    print("^2[qb-hackerjob] ^7Checking XP from client...")
+    GetHackerLevel(function(level, xp, nextXP)
+        print(string.format("^2[qb-hackerjob] ^7Client XP Check - Level: %d, XP: %d, NextXP: %d", level, xp, nextXP))
+        QBCore.Functions.Notify(string.format("Level: %d, XP: %d/%d", level, xp, nextXP), "primary")
+        
+        -- Force update UI if laptop is open
+        if exports['qb-hackerjob']:IsLaptopOpen() then
+            SendNUIMessage({
+                type = 'updateHackerStats',
+                level = level,
+                xp = xp,
+                nextLevelXP = nextXP,
+                levelName = Config.LevelNames[level] or "Unknown Level"
+            })
+        end
+    end)
+end, false)
+
 -- Initialize vendor
 CreateThread(function()
     while not playerLoaded do
@@ -377,6 +414,86 @@ CreateThread(function()
     -- Create vendor ped
     SetupVendor()
 end)
+
+-- Event to handle level up animation/notification
+RegisterNetEvent('qb-hackerjob:client:levelUp')
+AddEventHandler('qb-hackerjob:client:levelUp', function(newLevel, levelName)
+    -- Play celebration sound
+    PlaySound(-1, "RACE_PLACED", "HUD_AWARDS", 0, 0, 1)
+    
+    -- Show fancy notification
+    SendNUIMessage({
+        type = "levelUp",
+        level = newLevel,
+        name = levelName
+    })
+    
+    -- Update local variables (XP needs to be fetched again or estimated)
+    currentHackerLevel = newLevel
+    -- Re-fetch level/XP to get accurate current XP and next threshold
+    GetHackerLevel(function(level, xp, nextXP)
+        -- Update available features and stats display if laptop is open
+        if exports['qb-hackerjob']:IsLaptopOpen() then
+            SendNUIMessage({
+                type = "updateHackerStats",
+                level = level,
+                xp = xp,
+                nextLevelXP = nextXP,
+                levelName = Config.LevelNames[level] or "Unknown Level"
+            })
+        end
+    end)
+    
+    -- Visual effects for level up
+    AnimpostfxPlay("SuccessMichael", 0, false)
+    Citizen.SetTimeout(5000, function()
+        AnimpostfxStop("SuccessMichael")
+    end)
+end)
+
+-- Get player's hacker level
+function GetHackerLevel(callback)
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:getHackerLevel', function(level, xp, nextLevelXP)
+        -- Update local variables
+        currentHackerLevel = level or 1
+        currentHackerXP = xp or 0
+        xpForNextLevel = nextLevelXP or Config.LevelThresholds[2] or 100 -- Default to level 2 threshold or 100
+        
+        -- Debug log
+        print(string.format("^3[qb-hackerjob] ^7Updated local hacker level: %d, XP: %d/%d", currentHackerLevel, currentHackerXP, xpForNextLevel))
+        
+        -- Execute callback if provided
+        if callback then
+            callback(currentHackerLevel, currentHackerXP, xpForNextLevel)
+        end
+    end)
+end
+
+-- Check if player can use a specific hacking feature
+function CanUseFeature(feature, callback)
+    if not Config.XPEnabled then
+        callback(true)
+        return
+    end
+    
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:canUseFeature', function(canUse)
+        if not canUse then
+            local featureNames = {
+                plateLookup = "Plate Lookup",
+                phoneTrack = "Phone Tracking",
+                radioDecrypt = "Radio Decryption",
+                vehicleTrack = "Vehicle Tracking",
+                phoneHack = "Phone Hacking",
+                vehicleControl = "Vehicle Remote Control"
+            }
+            
+            local featureName = featureNames[feature] or "this feature"
+            QBCore.Functions.Notify("You need a higher hacker level to use " .. featureName, "error")
+        end
+        
+        callback(canUse)
+    end, feature)
+end
 
 -- Alert police when trace level is too high
 RegisterNetEvent('qb-hackerjob:client:alertPoliceTraceLevel')
@@ -425,6 +542,41 @@ AddEventHandler('qb-hackerjob:client:alertPoliceTraceLevel', function(hackerId)
     QBCore.Functions.Notify("Dispatch: Suspicious network activity detected.", "police")
 end)
 
+-- Success handler for hacking operations to award XP
+function HandleHackSuccess(activity, target, details)
+    -- Add XP
+    TriggerServerEvent('qb-hackerjob:server:addXP', activity)
+    
+    -- Log activity
+    TriggerServerEvent('qb-hackerjob:server:logActivity', activity, target, true, details)
+    
+    -- Add trace
+    TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', activity)
+end
+
+-- Failure handler for hacking operations
+function HandleHackFailure(activity, target, details)
+    -- Log failure
+    TriggerServerEvent('qb-hackerjob:server:logActivity', activity, target, false, details)
+    
+    -- Still add some trace (failed attempts are suspicious too)
+    TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', activity)
+    
+    -- Higher chance to alert police on failure
+    local alertChance = (Config.AlertPolice[activity .. 'Chance'] or 10) * 2
+    if math.random(1, 100) <= alertChance then
+        -- Alert police (using existing police integration)
+        local playerCoords = GetEntityCoords(PlayerPedId())
+        TriggerServerEvent('police:server:policeAlert', 'Hacking attempt detected', playerCoords)
+        
+        QBCore.Functions.Notify("A trace of your hack attempt was detected!", "error")
+    end
+end
+
+-- Export the handler functions
+exports('HandleHackSuccess', HandleHackSuccess)
+exports('HandleHackFailure', HandleHackFailure)
+
 -- Check cooldowns for hacking operations
 function CheckCooldown(activity, callback)
     local lastUseTime = QBCore.Functions.GetPlayerData().metadata["lastHack" .. activity] or 0
@@ -442,35 +594,138 @@ function CheckCooldown(activity, callback)
     end
 end
 
--- ===== NEW SIMPLE XP SYSTEM =====
+-- Update hacker laptop UI with level info
+RegisterNetEvent('qb-hackerjob:client:updateLaptopUI')
+AddEventHandler('qb-hackerjob:client:updateLaptopUI', function()
+    SendNUIMessage({
+        type = "updateLevel",
+        level = currentHackerLevel,
+        xp = currentHackerXP,
+        nextLevel = xpForNextLevel,
+        levelName = Config.LevelNames[currentHackerLevel]
+    })
+end)
 
--- Function to award XP for hacking activities
-function AwardXP(activityType)
-    if not Config.XPEnabled then return end
-    TriggerServerEvent('hackerjob:awardXP', activityType)
-end
+-- Show XP progress bar in UI
+function ShowXPBar()
+    -- Calculate percentage progress to next level
+    local currentLevelThreshold = Config.LevelThresholds[currentHackerLevel]
+    local nextLevelThreshold = Config.LevelThresholds[currentHackerLevel + 1] or (Config.LevelThresholds[5] * 2)
+    local progress = math.floor(((currentHackerXP - currentLevelThreshold) / (nextLevelThreshold - currentLevelThreshold)) * 100)
+    
+    if currentHackerLevel >= 5 then
+        progress = 100 -- Max level
+    end
+    
+    SendNUIMessage({
+        type = "showXPBar",
+        level = currentHackerLevel,
+        levelName = Config.LevelNames[currentHackerLevel],
+        progress = progress,
+        xp = currentHackerXP
+    })
+    
+    Citizen.SetTimeout(5000, function()
+        SendNUIMessage({
+            type = "hideXPBar"
+        })
+    end)
+end)
 
--- Handle XP stats updates from server
-RegisterNetEvent('hackerjob:updateStats')
-AddEventHandler('hackerjob:updateStats', function(stats)
-    -- Update laptop UI if open
+-- Event handlers for hack success/failure via local events (solves export issues)
+RegisterNetEvent('qb-hackerjob:client:handleHackSuccess')
+AddEventHandler('qb-hackerjob:client:handleHackSuccess', function(activity, target, details)
+    -- Debug prints to trace event flow
+    print("^2[qb-hackerjob:client:handleHackSuccess] ^7Event received:")
+    print("^2[qb-hackerjob:client:handleHackSuccess] ^7 - Activity: " .. tostring(activity))
+    print("^2[qb-hackerjob:client:handleHackSuccess] ^7 - Target: " .. tostring(target))
+    print("^2[qb-hackerjob:client:handleHackSuccess] ^7 - Details: " .. tostring(details))
+    
+    -- Add XP directly - This triggers the server-side XP addition
+    print("^2[qb-hackerjob:client:handleHackSuccess] ^7Triggering server XP event for activity: " .. tostring(activity))
+    TriggerServerEvent('qb-hackerjob:server:addXP', activity)
+    
+    -- Log activity
+    TriggerServerEvent('qb-hackerjob:server:logActivity', activity, target, true, details)
+    
+    -- Add trace
+    TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', activity)
+    
+    -- Display a notification directly to the player
+    local xpAmount = Config.XPSettings[activity] or 5
+    print("^2[qb-hackerjob:client:handleHackSuccess] ^7Showing XP notification: +" .. xpAmount)
+    QBCore.Functions.Notify("Hack successful: +" .. xpAmount .. " XP", "success")
+end)
+
+RegisterNetEvent('qb-hackerjob:client:handleHackFailure')
+AddEventHandler('qb-hackerjob:client:handleHackFailure', function(activity, target, details)
+    -- Log failure
+    TriggerServerEvent('qb-hackerjob:server:logActivity', activity, target, false, details)
+    
+    -- Still add some trace (failed attempts are suspicious too)
+    TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', activity)
+    
+    -- Higher chance to alert police on failure
+    local alertChance = (Config.AlertPolice[activity .. 'Chance'] or 10) * 2
+    if math.random(1, 100) <= alertChance then
+        -- Alert police (using existing police integration)
+        local playerCoords = GetEntityCoords(PlayerPedId())
+        TriggerServerEvent('police:server:policeAlert', 'Hacking attempt detected', playerCoords)
+        
+        QBCore.Functions.Notify("A trace of your hack attempt was detected!", "error")
+    end
+end)
+
+-- Handler for receiving updated stats from the server
+RegisterNetEvent('qb-hackerjob:client:updateStats')
+AddEventHandler('qb-hackerjob:client:updateStats', function(stats)
+    -- ### CLIENT DEBUG START ###
+    print("^3[qb-hackerjob:client:updateStats] ========== UI UPDATE EVENT ==========")
+    print("^3[qb-hackerjob:client:updateStats] Event received.^7")
+    if type(stats) ~= 'table' then
+        print("^1[qb-hackerjob:client:updateStats] Received invalid stats data type: " .. type(stats) .. "^7")
+        return
+    end
+
+    print(string.format("^3[qb-hackerjob:client:updateStats] Data: Level=%s, XP=%s, NextXP=%s, Name=%s^7",
+        tostring(stats.level), tostring(stats.xp), tostring(stats.nextLevelXP), tostring(stats.levelName)))
+    print("^3[qb-hackerjob:client:updateStats] Laptop Open Status: " .. tostring(exports['qb-hackerjob']:IsLaptopOpen()))
+    -- ### CLIENT DEBUG END ###
+
+    -- Update local cache (if needed, though NUI should be primary display)
+    currentHackerLevel = tonumber(stats.level) or currentHackerLevel
+    currentHackerXP = stats.xp or currentHackerXP
+    xpForNextLevel = stats.nextLevelXP or xpForNextLevel
+
+    -- FIXED: Ensure we're using the correct action type for the NUI message
+    -- The NUI script is expecting 'updateHackerStats' but we were sending 'action' = 'updateHackerStats'
+    -- This should be 'type' for the NUI script to recognize it
+    local nuiData = {
+        type = 'updateHackerStats',
+        level = tonumber(stats.level) or 1,
+        xp = tonumber(stats.xp) or 0,
+        nextLevelXP = tonumber(stats.nextLevelXP) or 100,
+        levelName = tostring(stats.levelName) or "Unknown Rank"
+    }
+    
+    -- ### CLIENT DEBUG START ###
+    print("^3[qb-hackerjob:client:updateStats] Sending NUI message: " .. json.encode(nuiData) .. "^7")
+    -- ### CLIENT DEBUG END ###
+    
+    -- Force update the UI elements directly as well
+    SendNUIMessage(nuiData)
+    
+    -- Also update the UI elements directly when laptop is open
     if exports['qb-hackerjob']:IsLaptopOpen() then
+        -- Update the hacker stats display in the taskbar
         SendNUIMessage({
             action = 'updateHackerStats',
-            level = stats.level,
-            xp = stats.xp,
-            nextLevelXP = stats.nextLevelXP,
-            levelName = stats.levelName
+            level = tonumber(stats.level) or 1,
+            xp = tonumber(stats.xp) or 0,
+            nextLevelXP = tonumber(stats.nextLevelXP) or 100,
+            levelName = tostring(stats.levelName) or "Unknown Rank"
         })
     end
 end)
 
--- Export XP function for use in other files
-exports('AwardXP', AwardXP)
-
--- Test command for XP
-RegisterCommand('testxp', function()
-    AwardXP('plateLookup')
-end, false)
-
-print("^2[qb-hackerjob] ^7Client main script loaded successfully")
+-- Note: Laptop opening logic moved to laptop.lua to avoid conflicts
