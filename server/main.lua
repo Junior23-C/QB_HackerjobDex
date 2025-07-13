@@ -608,16 +608,29 @@ end)
 -- Award XP for hacking activities
 RegisterServerEvent('hackerjob:awardXP')
 AddEventHandler('hackerjob:awardXP', function(activityType)
-    if not Config.XPEnabled then return end
+    print("^2[hackerjob:awardXP] ^7Event triggered for activity: " .. tostring(activityType))
+    
+    if not Config.XPEnabled then 
+        print("^3[hackerjob:awardXP] ^7XP system disabled")
+        return 
+    end
     
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
-    if not Player then return end
+    if not Player then 
+        print("^1[hackerjob:awardXP] ^7Player not found for source: " .. tostring(src))
+        return 
+    end
     
     local citizenid = Player.PlayerData.citizenid
     local xpAmount = Config.XPSettings[activityType] or 0
     
-    if xpAmount <= 0 then return end
+    print("^2[hackerjob:awardXP] ^7XP amount for " .. activityType .. ": " .. xpAmount)
+    
+    if xpAmount <= 0 then 
+        print("^3[hackerjob:awardXP] ^7No XP configured for activity: " .. activityType)
+        return 
+    end
     
     -- Get current stats
     MySQL.query('SELECT * FROM hacker_skills WHERE citizenid = ?', {citizenid}, function(result)
@@ -712,8 +725,59 @@ QBCore.Commands.Add('givexp', 'Give XP to a player (Admin)', {
         return
     end
     
-    TriggerEvent('hackerjob:awardXP', 'adminGrant')
-    TriggerClientEvent('QBCore:Notify', source, "Gave " .. amount .. " XP to player " .. targetId, "success")
+    -- Add custom XP amount directly to the target player
+    local Player = QBCore.Functions.GetPlayer(targetId)
+    if not Player then
+        TriggerClientEvent('QBCore:Notify', source, "Player not found", "error")
+        return
+    end
+    
+    local citizenid = Player.PlayerData.citizenid
+    
+    -- Get current stats
+    MySQL.query('SELECT * FROM hacker_skills WHERE citizenid = ?', {citizenid}, function(result)
+        local currentXP = 0
+        local currentLevel = 1
+        
+        if result and #result > 0 then
+            currentXP = result[1].xp
+            currentLevel = result[1].level
+        end
+        
+        -- Add XP
+        local newXP = currentXP + amount
+        
+        -- Calculate new level
+        local newLevel = currentLevel
+        for level = 1, #Config.LevelThresholds do
+            if newXP >= Config.LevelThresholds[level] then
+                newLevel = level
+            else
+                break
+            end
+        end
+        
+        -- Update database
+        MySQL.query('INSERT INTO hacker_skills (citizenid, xp, level) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE xp = ?, level = ?', 
+            {citizenid, newXP, newLevel, newXP, newLevel}, function()
+            
+            -- Calculate next level XP
+            local nextLevelThreshold = Config.LevelThresholds[newLevel + 1] or Config.LevelThresholds[#Config.LevelThresholds]
+            local levelName = Config.LevelNames[newLevel] or "Unknown"
+            
+            -- Notify admin and player
+            TriggerClientEvent('QBCore:Notify', source, "Gave " .. amount .. " XP to " .. Player.PlayerData.charinfo.firstname, "success")
+            TriggerClientEvent('QBCore:Notify', targetId, "Admin gave you " .. amount .. " XP!", "success")
+            
+            -- Update laptop UI if open
+            TriggerClientEvent('hackerjob:updateStats', targetId, {
+                level = newLevel,
+                xp = newXP,
+                nextLevelXP = nextLevelThreshold,
+                levelName = levelName
+            })
+        end)
+    end)
 end, 'admin')
 
 print('^2[qb-hackerjob] ^7Server script loaded successfully')

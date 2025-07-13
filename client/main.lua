@@ -453,15 +453,25 @@ end
 -- Handle XP stats updates from server
 RegisterNetEvent('hackerjob:updateStats')
 AddEventHandler('hackerjob:updateStats', function(stats)
+    print("^2[qb-hackerjob] ^7Received stats update from server:")
+    print("  Level: " .. tostring(stats.level))
+    print("  XP: " .. tostring(stats.xp))
+    print("  Next Level XP: " .. tostring(stats.nextLevelXP))
+    print("  Level Name: " .. tostring(stats.levelName))
+    
     -- Update laptop UI if open
     if exports['qb-hackerjob']:IsLaptopOpen() then
+        print("^2[qb-hackerjob] ^7Laptop is open, sending NUI message...")
         SendNUIMessage({
             action = 'updateHackerStats',
+            type = 'updateHackerStats', -- Send both for compatibility
             level = stats.level,
             xp = stats.xp,
             nextLevelXP = stats.nextLevelXP,
             levelName = stats.levelName
         })
+    else
+        print("^3[qb-hackerjob] ^7Laptop is not open, skipping UI update")
     end
 end)
 
@@ -470,7 +480,21 @@ exports('AwardXP', AwardXP)
 
 -- Test command for XP
 RegisterCommand('testxp', function()
+    print("^2[qb-hackerjob] ^7Running testxp command...")
     AwardXP('plateLookup')
+    QBCore.Functions.Notify("Test XP awarded!", "success")
+end, false)
+
+-- Debug command to check XP
+RegisterCommand('checkxp', function()
+    QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
+        print("^2[qb-hackerjob] ^7Current XP Stats:")
+        print("  Level: " .. stats.level)
+        print("  XP: " .. stats.xp)
+        print("  Next Level XP: " .. stats.nextLevelXP)
+        print("  Level Name: " .. stats.levelName)
+        QBCore.Functions.Notify("Level " .. stats.level .. " (" .. stats.levelName .. ") - " .. stats.xp .. " XP", "primary")
+    end)
 end, false)
 
 print("^2[qb-hackerjob] ^7Client main script loaded successfully")

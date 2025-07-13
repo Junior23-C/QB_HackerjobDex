@@ -814,26 +814,17 @@ function performVehicleAction(action, plate) {
     }
 
     // Regular actions continue as normal
-    // Show overlay during action
-    showActionOverlay(`Attempting to ${action.replace('_', ' ')} vehicle...`);
-
     // Normal action handling
     $.post('https://qb-hackerjob/performVehicleAction', JSON.stringify({
         action: action,
         plate: plate
     }), function(response) {
-        hideActionOverlay();
         if (response.success) {
             showActionSuccess(action, plate);
         } else {
             showActionFailed(action, plate);
         }
     });
-
-    // Safety timeout in case the callback doesn't fire
-    setTimeout(() => {
-        hideActionOverlay();
-    }, 5000);
 }
 
 // Function to show captcha challenge
