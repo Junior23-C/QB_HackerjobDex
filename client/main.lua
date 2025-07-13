@@ -750,9 +750,8 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             end
             
             -- Open the laptop UI now that we have the level/XP data
-            SetNuiFocus(true, true)
-            SendNUIMessage({
-                type = "openLaptop",
+            -- Call the proper laptop opening function with XP data
+            exports['qb-hackerjob']:OpenHackerLaptop({
                 level = level,
                 xp = xp,
                 nextLevelXP = nextXP,

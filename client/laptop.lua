@@ -350,7 +350,7 @@ local function toggleCharging()
 end
 
 -- Function to open laptop
-function OpenHackerLaptop()
+function OpenHackerLaptop(xpData)
     print("^2[qb-hackerjob] ^7Attempting to open hacker laptop")
     
     if laptopOpen then 
@@ -397,15 +397,36 @@ function OpenHackerLaptop()
     -- Start idle drain
     startIdleDrain()
     
-    -- Send initial boot message to UI with optimized settings
-    SendNUIMessage({
+    -- Send initial boot message to UI with optimized settings and XP data
+    local message = {
         action = "openLaptop",
+        type = "openLaptop", -- Also include type for compatibility
         theme = Config.UISettings.theme,
         showAnimations = false, -- Disable animations for faster loading
         soundEffects = false, -- Disable sound effects regardless of config
         batteryLevel = batteryLevel,
         charging = isCharging
-    })
+    }
+    
+    -- Include XP data if provided
+    if xpData then
+        message.level = xpData.level or 1
+        message.xp = xpData.xp or 0
+        message.nextLevelXP = xpData.nextLevelXP or 100
+        message.levelName = xpData.levelName or "Script Kiddie"
+        message.features = xpData.features or {}
+        print(string.format("^2[qb-hackerjob] ^7Opening laptop with XP data: Level=%d, XP=%d, NextXP=%d, Name=%s", 
+            message.level, message.xp, message.nextLevelXP, message.levelName))
+    else
+        print("^3[qb-hackerjob] ^7Opening laptop without XP data - using defaults")
+        message.level = 1
+        message.xp = 0
+        message.nextLevelXP = 100
+        message.levelName = "Script Kiddie"
+        message.features = {}
+    end
+    
+    SendNUIMessage(message)
     
     -- Register storage values for the laptop session
     SetNuiFocusKeepInput(false)
@@ -462,11 +483,7 @@ function CloseLaptop()
 end
 
 -- Used for usable item
-RegisterNetEvent('qb-hackerjob:client:openLaptop')
-AddEventHandler('qb-hackerjob:client:openLaptop', function()
-    print("^2[qb-hackerjob] ^7openLaptop event triggered")
-    OpenHackerLaptop()
-end)
+-- Note: openLaptop event handler moved to main.lua to include XP data
 
 -- Battery management events
 RegisterNetEvent('qb-hackerjob:client:replaceBattery')

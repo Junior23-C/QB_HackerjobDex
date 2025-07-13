@@ -1073,6 +1073,17 @@ Citizen.CreateThread(function()
     end
 end)
 
+-- Test command to give XP for debugging
+QBCore.Commands.Add('testaddxp', 'Add test XP for debugging', {}, false, function(source, args)
+    local src = source
+    
+    print(string.format("^2[qb-hackerjob:testaddxp] ^7Adding XP to player %d", src))
+    
+    -- Simulate the client triggering the hack success
+    TriggerClientEvent('qb-hackerjob:client:handleHackSuccess', src, 'plateLookup', 'TEST123', 'Debug XP test')
+    
+end, false)
+
 -- Test command to give battery and charger items
 QBCore.Commands.Add('givehackerbatteryitems', 'Give battery and charger items for testing (Admin Only)', {}, true, function(source, args)
     local src = source
