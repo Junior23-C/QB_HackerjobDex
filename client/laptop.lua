@@ -495,9 +495,19 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             return
         end
         
-        -- Get updated hacker stats before opening NUI  
+        -- Get updated hacker stats before opening NUI (use both methods for reliability)
         QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
-            local level, xp, nextLevelXP = stats.level, stats.xp, stats.nextLevelXP
+            -- Also get local metadata as fallback
+            local localStats = exports['qb-hackerjob']:GetPlayerXPData()
+            
+            -- Use server stats if available, otherwise use local
+            local finalStats = stats
+            if not stats or not stats.level then
+                print("^3[qb-hackerjob] ^7Server stats unavailable, using local metadata")
+                finalStats = localStats
+            end
+            
+            local level, xp, nextLevelXP = finalStats.level, finalStats.xp, finalStats.nextLevelXP
             -- Battery check
             if Config.Battery.enabled then
                 local PlayerData = QBCore.Functions.GetPlayerData()
@@ -511,7 +521,7 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             end
             
             -- Open laptop with XP data
-            OpenHackerLaptop(stats)
+            OpenHackerLaptop(finalStats)
         end)
     end)
 end)

@@ -442,11 +442,12 @@ function CheckCooldown(activity, callback)
     end
 end
 
--- ===== NEW SIMPLE XP SYSTEM =====
+-- ===== QBCORE METADATA-BASED XP SYSTEM =====
 
 -- Function to award XP for hacking activities
 function AwardXP(activityType)
     if not Config.XPEnabled then return end
+    print("^2[qb-hackerjob] ^7Client AwardXP called for: " .. tostring(activityType))
     TriggerServerEvent('hackerjob:awardXP', activityType)
 end
 
@@ -487,8 +488,31 @@ AddEventHandler('hackerjob:updateStats', function(stats)
     end
 end)
 
+-- Function to get XP from player metadata directly (client-side)
+function GetPlayerXPData()
+    local Player = QBCore.Functions.GetPlayerData()
+    if not Player or not Player.metadata then 
+        return {level = 1, xp = 0, nextLevelXP = 100, levelName = "Script Kiddie"}
+    end
+    
+    local xp = Player.metadata.hackerXP or 0
+    local level = Player.metadata.hackerLevel or 1
+    
+    -- Calculate next level XP
+    local nextLevelXP = Config.LevelThresholds[level + 1] or Config.LevelThresholds[#Config.LevelThresholds]
+    local levelName = Config.LevelNames[level] or "Script Kiddie"
+    
+    return {
+        level = level,
+        xp = xp,
+        nextLevelXP = nextLevelXP,
+        levelName = levelName
+    }
+end
+
 -- Export XP function for use in other files
 exports('AwardXP', AwardXP)
+exports('GetPlayerXPData', GetPlayerXPData)
 
 -- Test command for XP
 RegisterCommand('testxp', function()
@@ -497,16 +521,46 @@ RegisterCommand('testxp', function()
     QBCore.Functions.Notify("Test XP awarded!", "success")
 end, false)
 
--- Debug command to check XP
+-- Debug command to check XP (using both methods for comparison)
 RegisterCommand('checkxp', function()
+    -- Method 1: Get from server callback
     QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
-        print("^2[qb-hackerjob] ^7Current XP Stats:")
+        print("^2[qb-hackerjob] ^7Server callback XP Stats:")
         print("  Level: " .. stats.level)
         print("  XP: " .. stats.xp)
         print("  Next Level XP: " .. stats.nextLevelXP)
         print("  Level Name: " .. stats.levelName)
-        QBCore.Functions.Notify("Level " .. stats.level .. " (" .. stats.levelName .. ") - " .. stats.xp .. " XP", "primary")
+        QBCore.Functions.Notify("Server: Level " .. stats.level .. " (" .. stats.levelName .. ") - " .. stats.xp .. " XP", "primary")
     end)
+    
+    -- Method 2: Get from local metadata
+    local localStats = GetPlayerXPData()
+    print("^2[qb-hackerjob] ^7Local metadata XP Stats:")
+    print("  Level: " .. localStats.level)
+    print("  XP: " .. localStats.xp)
+    print("  Next Level XP: " .. localStats.nextLevelXP)
+    print("  Level Name: " .. localStats.levelName)
+    QBCore.Functions.Notify("Local: Level " .. localStats.level .. " (" .. localStats.levelName .. ") - " .. localStats.xp .. " XP", "info")
 end, false)
+
+-- Handle metadata updates
+RegisterNetEvent('QBCore:Player:SetPlayerData')
+AddEventHandler('QBCore:Player:SetPlayerData', function(val)
+    PlayerData = val
+    
+    -- Check if laptop is open and update stats when metadata changes
+    if exports['qb-hackerjob']:IsLaptopOpen() and val.metadata then
+        local stats = GetPlayerXPData()
+        print("^2[qb-hackerjob] ^7Metadata updated, refreshing laptop UI...")
+        SendNUIMessage({
+            action = 'updateHackerStats',
+            type = 'updateHackerStats',
+            level = stats.level,
+            xp = stats.xp,
+            nextLevelXP = stats.nextLevelXP,
+            levelName = stats.levelName
+        })
+    end
+end)
 
 print("^2[qb-hackerjob] ^7Client main script loaded successfully")

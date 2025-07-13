@@ -396,21 +396,9 @@ AddEventHandler('qb-hackerjob:server:removeItem', function(itemName, amount)
     print("^2[qb-hackerjob] ^7removeItem: Successfully removed item")
 end)
 
--- Database setup for hacker progression system (simplified)
+-- Database setup for logs only (XP now uses metadata)
 Citizen.CreateThread(function()
     Citizen.Wait(1000) -- Wait for database connection
-    
-    -- Create hacker_skills table if it doesn't exist
-    MySQL.query([[
-        CREATE TABLE IF NOT EXISTS `hacker_skills` (
-            `citizenid` varchar(50) NOT NULL,
-            `xp` int(11) NOT NULL DEFAULT 0,
-            `level` int(11) NOT NULL DEFAULT 1,
-            `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-            `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-            PRIMARY KEY (`citizenid`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    ]])
     
     -- Create hacker_logs table if it doesn't exist
     MySQL.query([[
@@ -603,9 +591,39 @@ AddEventHandler('qb-hackerjob:server:saveBatteryLevel', function(batteryLevel)
     print("^2[qb-hackerjob] ^7Saved battery level " .. batteryLevel .. "% for player " .. src)
 end)
 
--- ===== NEW SIMPLE XP SYSTEM =====
+-- ===== QBCORE METADATA-BASED XP SYSTEM =====
 
--- Award XP for hacking activities
+-- Initialize player XP metadata if not exists
+local function InitializePlayerXP(Player)
+    if not Player then return end
+    
+    -- Check if player has XP metadata, if not initialize it
+    if not Player.PlayerData.metadata.hackerXP then
+        Player.Functions.SetMetaData('hackerXP', 0)
+    end
+    if not Player.PlayerData.metadata.hackerLevel then
+        Player.Functions.SetMetaData('hackerLevel', 1)
+    end
+    
+    print("^2[qb-hackerjob] ^7Initialized XP metadata for player: " .. Player.PlayerData.citizenid)
+end
+
+-- Function to calculate level from XP
+local function CalculateLevelFromXP(xp)
+    for level = #Config.LevelThresholds, 1, -1 do
+        if xp >= Config.LevelThresholds[level] then
+            return level
+        end
+    end
+    return 1
+end
+
+-- Function to get next level XP threshold
+local function GetNextLevelXP(level)
+    return Config.LevelThresholds[level + 1] or Config.LevelThresholds[#Config.LevelThresholds]
+end
+
+-- Award XP for hacking activities using metadata
 RegisterServerEvent('hackerjob:awardXP')
 AddEventHandler('hackerjob:awardXP', function(activityType)
     print("^2[hackerjob:awardXP] ^7Event triggered for activity: " .. tostring(activityType))
@@ -622,9 +640,10 @@ AddEventHandler('hackerjob:awardXP', function(activityType)
         return 
     end
     
-    local citizenid = Player.PlayerData.citizenid
-    local xpAmount = Config.XPSettings[activityType] or 0
+    -- Initialize XP if needed
+    InitializePlayerXP(Player)
     
+    local xpAmount = Config.XPSettings[activityType] or 0
     print("^2[hackerjob:awardXP] ^7XP amount for " .. activityType .. ": " .. xpAmount)
     
     if xpAmount <= 0 then 
@@ -632,58 +651,41 @@ AddEventHandler('hackerjob:awardXP', function(activityType)
         return 
     end
     
-    -- Get current stats
-    MySQL.query('SELECT * FROM hacker_skills WHERE citizenid = ?', {citizenid}, function(result)
-        local currentXP = 0
-        local currentLevel = 1
-        
-        if result and #result > 0 then
-            currentXP = result[1].xp
-            currentLevel = result[1].level
-        end
-        
-        -- Add XP
-        local newXP = currentXP + xpAmount
-        
-        -- Calculate new level
-        local newLevel = currentLevel
-        for level = 1, #Config.LevelThresholds do
-            if newXP >= Config.LevelThresholds[level] then
-                newLevel = level
-            else
-                break
-            end
-        end
-        
-        -- Update database
-        MySQL.query('INSERT INTO hacker_skills (citizenid, xp, level) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE xp = ?, level = ?', 
-            {citizenid, newXP, newLevel, newXP, newLevel}, function()
-            
-            -- Calculate next level XP
-            local nextLevelThreshold = Config.LevelThresholds[newLevel + 1] or Config.LevelThresholds[#Config.LevelThresholds]
-            local levelName = Config.LevelNames[newLevel] or "Unknown"
-            
-            -- Notify player
-            local leveledUp = newLevel > currentLevel
-            if leveledUp then
-                TriggerClientEvent('QBCore:Notify', src, "Level Up! You are now a " .. levelName, "success", 5000)
-                TriggerClientEvent('QBCore:Notify', src, "+" .. xpAmount .. " XP gained!", "primary")
-            else
-                TriggerClientEvent('QBCore:Notify', src, "+" .. xpAmount .. " XP gained!", "success")
-            end
-            
-            -- Update laptop UI if open
-            TriggerClientEvent('hackerjob:updateStats', src, {
-                level = newLevel,
-                xp = newXP,
-                nextLevelXP = nextLevelThreshold,
-                levelName = levelName
-            })
-        end)
-    end)
+    -- Get current XP and level from metadata
+    local currentXP = Player.PlayerData.metadata.hackerXP or 0
+    local currentLevel = Player.PlayerData.metadata.hackerLevel or 1
+    
+    -- Add XP
+    local newXP = currentXP + xpAmount
+    local newLevel = CalculateLevelFromXP(newXP)
+    local nextLevelXP = GetNextLevelXP(newLevel)
+    local levelName = Config.LevelNames[newLevel] or "Unknown"
+    
+    -- Update metadata
+    Player.Functions.SetMetaData('hackerXP', newXP)
+    Player.Functions.SetMetaData('hackerLevel', newLevel)
+    
+    print("^2[hackerjob:awardXP] ^7Updated XP: " .. currentXP .. " -> " .. newXP .. ", Level: " .. currentLevel .. " -> " .. newLevel)
+    
+    -- Notify player
+    local leveledUp = newLevel > currentLevel
+    if leveledUp then
+        TriggerClientEvent('QBCore:Notify', src, "Level Up! You are now a " .. levelName, "success", 5000)
+        TriggerClientEvent('QBCore:Notify', src, "+" .. xpAmount .. " XP gained!", "primary")
+    else
+        TriggerClientEvent('QBCore:Notify', src, "+" .. xpAmount .. " XP gained!", "success")
+    end
+    
+    -- Update laptop UI if open
+    TriggerClientEvent('hackerjob:updateStats', src, {
+        level = newLevel,
+        xp = newXP,
+        nextLevelXP = nextLevelXP,
+        levelName = levelName
+    })
 end)
 
--- Get player XP stats
+-- Get player XP stats from metadata
 QBCore.Functions.CreateCallback('hackerjob:getStats', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then 
@@ -691,28 +693,26 @@ QBCore.Functions.CreateCallback('hackerjob:getStats', function(source, cb)
         return 
     end
     
-    local citizenid = Player.PlayerData.citizenid
+    -- Initialize XP if needed
+    InitializePlayerXP(Player)
     
-    MySQL.query('SELECT * FROM hacker_skills WHERE citizenid = ?', {citizenid}, function(result)
-        if result and #result > 0 then
-            local level = result[1].level
-            local xp = result[1].xp
-            local nextLevelThreshold = Config.LevelThresholds[level + 1] or Config.LevelThresholds[#Config.LevelThresholds]
-            local levelName = Config.LevelNames[level] or "Unknown"
-            
-            cb({
-                level = level,
-                xp = xp,
-                nextLevelXP = nextLevelThreshold,
-                levelName = levelName
-            })
-        else
-            cb({level = 1, xp = 0, nextLevelXP = 100, levelName = "Script Kiddie"})
-        end
-    end)
+    -- Get data from metadata
+    local xp = Player.PlayerData.metadata.hackerXP or 0
+    local level = Player.PlayerData.metadata.hackerLevel or 1
+    local nextLevelXP = GetNextLevelXP(level)
+    local levelName = Config.LevelNames[level] or "Script Kiddie"
+    
+    print("^2[hackerjob:getStats] ^7Retrieved stats - Level: " .. level .. ", XP: " .. xp .. ", Next: " .. nextLevelXP)
+    
+    cb({
+        level = level,
+        xp = xp,
+        nextLevelXP = nextLevelXP,
+        levelName = levelName
+    })
 end)
 
--- Admin command to give XP
+-- Admin command to give XP using metadata
 QBCore.Commands.Add('givexp', 'Give XP to a player (Admin)', {
     {name = 'id', help = 'Player ID'},
     {name = 'amount', help = 'XP Amount'}
@@ -725,59 +725,45 @@ QBCore.Commands.Add('givexp', 'Give XP to a player (Admin)', {
         return
     end
     
-    -- Add custom XP amount directly to the target player
     local Player = QBCore.Functions.GetPlayer(targetId)
     if not Player then
         TriggerClientEvent('QBCore:Notify', source, "Player not found", "error")
         return
     end
     
-    local citizenid = Player.PlayerData.citizenid
+    -- Initialize XP if needed
+    InitializePlayerXP(Player)
     
-    -- Get current stats
-    MySQL.query('SELECT * FROM hacker_skills WHERE citizenid = ?', {citizenid}, function(result)
-        local currentXP = 0
-        local currentLevel = 1
-        
-        if result and #result > 0 then
-            currentXP = result[1].xp
-            currentLevel = result[1].level
-        end
-        
-        -- Add XP
-        local newXP = currentXP + amount
-        
-        -- Calculate new level
-        local newLevel = currentLevel
-        for level = 1, #Config.LevelThresholds do
-            if newXP >= Config.LevelThresholds[level] then
-                newLevel = level
-            else
-                break
-            end
-        end
-        
-        -- Update database
-        MySQL.query('INSERT INTO hacker_skills (citizenid, xp, level) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE xp = ?, level = ?', 
-            {citizenid, newXP, newLevel, newXP, newLevel}, function()
-            
-            -- Calculate next level XP
-            local nextLevelThreshold = Config.LevelThresholds[newLevel + 1] or Config.LevelThresholds[#Config.LevelThresholds]
-            local levelName = Config.LevelNames[newLevel] or "Unknown"
-            
-            -- Notify admin and player
-            TriggerClientEvent('QBCore:Notify', source, "Gave " .. amount .. " XP to " .. Player.PlayerData.charinfo.firstname, "success")
-            TriggerClientEvent('QBCore:Notify', targetId, "Admin gave you " .. amount .. " XP!", "success")
-            
-            -- Update laptop UI if open
-            TriggerClientEvent('hackerjob:updateStats', targetId, {
-                level = newLevel,
-                xp = newXP,
-                nextLevelXP = nextLevelThreshold,
-                levelName = levelName
-            })
-        end)
-    end)
+    -- Get current data from metadata
+    local currentXP = Player.PlayerData.metadata.hackerXP or 0
+    local currentLevel = Player.PlayerData.metadata.hackerLevel or 1
+    
+    -- Add XP
+    local newXP = currentXP + amount
+    local newLevel = CalculateLevelFromXP(newXP)
+    local nextLevelXP = GetNextLevelXP(newLevel)
+    local levelName = Config.LevelNames[newLevel] or "Unknown"
+    
+    -- Update metadata
+    Player.Functions.SetMetaData('hackerXP', newXP)
+    Player.Functions.SetMetaData('hackerLevel', newLevel)
+    
+    -- Notify admin and player
+    TriggerClientEvent('QBCore:Notify', source, "Gave " .. amount .. " XP to " .. Player.PlayerData.charinfo.firstname, "success")
+    TriggerClientEvent('QBCore:Notify', targetId, "Admin gave you " .. amount .. " XP!", "success")
+    
+    -- Update laptop UI if open
+    TriggerClientEvent('hackerjob:updateStats', targetId, {
+        level = newLevel,
+        xp = newXP,
+        nextLevelXP = nextLevelXP,
+        levelName = levelName
+    })
 end, 'admin')
+
+-- Initialize XP for players when they join
+AddEventHandler('QBCore:Server:PlayerLoaded', function(Player)
+    InitializePlayerXP(Player)
+end)
 
 print('^2[qb-hackerjob] ^7Server script loaded successfully')
