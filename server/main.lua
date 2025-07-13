@@ -544,6 +544,8 @@ AddEventHandler('qb-hackerjob:server:addXP', function(activity)
     end
 
     -- Super detailed debugging for vehicle actions
+    print("^1[qb-hackerjob:addXP] ========== XP EVENT START ==========")
+    print("^1[qb-hackerjob:addXP] Source: " .. tostring(src))
     print("^1[qb-hackerjob:addXP] Activity received: " .. tostring(activity) .. "^7")
     print("^1[qb-hackerjob:addXP] Available XP types: ")
     for k, v in pairs(Config.XPSettings) do

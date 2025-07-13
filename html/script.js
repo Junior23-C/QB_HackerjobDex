@@ -1102,7 +1102,7 @@ function decryptRadio(frequency) {
 window.addEventListener('message', function(event) {
     const data = event.data;
 
-    if (data.action === 'openLaptop') {
+    if (data.action === 'openLaptop' || data.type === 'openLaptop') {
         // Store initial data from Lua
         currentLevel = data.level || 1;
         currentXP = data.xp || 0;

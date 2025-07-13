@@ -373,6 +373,32 @@ RegisterCommand('togglehackerblip', function()
     ToggleVendorBlip()
 end, false)
 
+-- Debug command to test XP system
+RegisterCommand('testxp', function()
+    print("^2[qb-hackerjob] ^7Testing XP system...")
+    TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'plateLookup', 'TEST123', 'Testing XP system')
+end, false)
+
+-- Debug command to check current XP
+RegisterCommand('checkxpclient', function()
+    print("^2[qb-hackerjob] ^7Checking XP from client...")
+    GetHackerLevel(function(level, xp, nextXP)
+        print(string.format("^2[qb-hackerjob] ^7Client XP Check - Level: %d, XP: %d, NextXP: %d", level, xp, nextXP))
+        QBCore.Functions.Notify(string.format("Level: %d, XP: %d/%d", level, xp, nextXP), "primary")
+        
+        -- Force update UI if laptop is open
+        if exports['qb-hackerjob']:IsLaptopOpen() then
+            SendNUIMessage({
+                type = 'updateHackerStats',
+                level = level,
+                xp = xp,
+                nextLevelXP = nextXP,
+                levelName = Config.LevelNames[level] or "Unknown Level"
+            })
+        end
+    end)
+end, false)
+
 -- Initialize vendor
 CreateThread(function()
     while not playerLoaded do
@@ -648,6 +674,7 @@ end)
 RegisterNetEvent('qb-hackerjob:client:updateStats')
 AddEventHandler('qb-hackerjob:client:updateStats', function(stats)
     -- ### CLIENT DEBUG START ###
+    print("^3[qb-hackerjob:client:updateStats] ========== UI UPDATE EVENT ==========")
     print("^3[qb-hackerjob:client:updateStats] Event received.^7")
     if type(stats) ~= 'table' then
         print("^1[qb-hackerjob:client:updateStats] Received invalid stats data type: " .. type(stats) .. "^7")
@@ -656,6 +683,7 @@ AddEventHandler('qb-hackerjob:client:updateStats', function(stats)
 
     print(string.format("^3[qb-hackerjob:client:updateStats] Data: Level=%s, XP=%s, NextXP=%s, Name=%s^7",
         tostring(stats.level), tostring(stats.xp), tostring(stats.nextLevelXP), tostring(stats.levelName)))
+    print("^3[qb-hackerjob:client:updateStats] Laptop Open Status: " .. tostring(exports['qb-hackerjob']:IsLaptopOpen()))
     -- ### CLIENT DEBUG END ###
 
     -- Update local cache (if needed, though NUI should be primary display)
@@ -682,7 +710,7 @@ AddEventHandler('qb-hackerjob:client:updateStats', function(stats)
     SendNUIMessage(nuiData)
     
     -- Also update the UI elements directly when laptop is open
-    if laptopOpen then
+    if exports['qb-hackerjob']:IsLaptopOpen() then
         -- Update the hacker stats display in the taskbar
         SendNUIMessage({
             action = 'updateHackerStats',
