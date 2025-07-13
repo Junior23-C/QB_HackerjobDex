@@ -17,6 +17,7 @@ $(document).ready(function() {
     // Initialize
     resetUI();
     setupEventHandlers();
+    setupDragFunctionality();
     updateClock();
 
     // ### DISABLE NEARBY TAB VISUALLY ###
@@ -1291,3 +1292,80 @@ window.addEventListener('DOMContentLoaded', function() {
     `;
     document.head.appendChild(styleElement);
 });
+
+// Drag functionality for laptop window
+function setupDragFunctionality() {
+    const laptopContainer = document.getElementById('laptop-container');
+    let isDragging = false;
+    let currentX = 0;
+    let currentY = 0;
+    let initialX = 0;
+    let initialY = 0;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    // Mouse events
+    laptopContainer.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('mouseup', dragEnd);
+
+    // Touch events for mobile support
+    laptopContainer.addEventListener('touchstart', dragStart);
+    document.addEventListener('touchmove', dragMove);
+    document.addEventListener('touchend', dragEnd);
+
+    function dragStart(e) {
+        // Only allow dragging from the top 20px (header area)
+        const rect = laptopContainer.getBoundingClientRect();
+        const y = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
+        
+        if (y - rect.top > 20) return; // Only drag from header area
+        
+        if (e.type === 'touchstart') {
+            initialX = e.touches[0].clientX - xOffset;
+            initialY = e.touches[0].clientY - yOffset;
+        } else {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+        }
+
+        if (e.target === laptopContainer || e.target.tagName === 'BODY') {
+            isDragging = true;
+            laptopContainer.style.transition = 'none';
+        }
+    }
+
+    function dragMove(e) {
+        if (isDragging) {
+            e.preventDefault();
+            
+            if (e.type === 'touchmove') {
+                currentX = e.touches[0].clientX - initialX;
+                currentY = e.touches[0].clientY - initialY;
+            } else {
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+            }
+
+            xOffset = currentX;
+            yOffset = currentY;
+
+            // Keep window within viewport bounds
+            const rect = laptopContainer.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width;
+            const maxY = window.innerHeight - rect.height;
+            
+            xOffset = Math.max(-rect.width / 2, Math.min(xOffset, maxX - rect.width / 2));
+            yOffset = Math.max(-rect.height / 2, Math.min(yOffset, maxY - rect.height / 2));
+
+            laptopContainer.style.transform = `translate(calc(-50% + ${xOffset}px), calc(-50% + ${yOffset}px))`;
+        }
+    }
+
+    function dragEnd() {
+        if (isDragging) {
+            isDragging = false;
+            laptopContainer.style.transition = 'opacity 0.3s ease';
+        }
+    }
+}
