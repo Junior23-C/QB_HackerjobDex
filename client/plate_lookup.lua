@@ -367,16 +367,7 @@ AddEventHandler('qb-hackerjob:client:flagVehicle', function(plate, reason)
 end)
 
 -- Register NUI callback for vehicle actions
-RegisterNUICallback('performVehicleAction', function(data, cb)
-    print("^2[qb-hackerjob] ^7NUI Callback: performVehicleAction with action " .. tostring(data.action) .. " on plate " .. tostring(data.plate))
-    
-    if data.action and data.plate then
-        local success = exports["qb-hackerjob"]:PerformVehicleAction(data.action, data.plate)
-        cb({success = true}) -- We have to return true here because the export function is asynchronous
-    else
-        cb({success = false})
-    end
-end)
+-- Note: performVehicleAction callback moved to laptop.lua to handle battery drain
 
 -- Function to find a vehicle by its plate
 function GetVehicleByPlate(plate)

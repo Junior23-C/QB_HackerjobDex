@@ -794,9 +794,13 @@ RegisterNUICallback('performVehicleAction', function(data, cb)
     -- Log the action
     print("^2[qb-hackerjob] ^7Vehicle action: " .. data.action .. " on " .. data.plate .. ", drain type: " .. drainType)
     
-    -- Trigger the action event
-    TriggerEvent('qb-hackerjob:client:performVehicleAction', data.action, data.plate)
-    cb({success = true})
+    -- Perform the actual vehicle action
+    if data.action and data.plate then
+        local success = exports["qb-hackerjob"]:PerformVehicleAction(data.action, data.plate)
+        cb({success = success})
+    else
+        cb({success = false})
+    end
 end)
 
 -- Function to load battery level from player metadata
