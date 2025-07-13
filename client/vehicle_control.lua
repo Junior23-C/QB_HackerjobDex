@@ -83,6 +83,7 @@ function PerformVehicleAction(action, plate)
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been locked remotely")
         
         -- Award XP and log success using proper client event
+        print("^2[qb-hackerjob:vehicle_control] ^7About to trigger XP event for lock action")
         TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully locked vehicle')
         
         return true
@@ -107,6 +108,7 @@ function PerformVehicleAction(action, plate)
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been unlocked remotely")
         
         -- Award XP and log success using proper client event
+        print("^2[qb-hackerjob:vehicle_control] ^7About to trigger XP event for unlock action")
         TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully unlocked vehicle')
         
         return true
@@ -174,6 +176,7 @@ function PerformVehicleAction(action, plate)
         print("^2[qb-hackerjob] ^7Vehicle brakes permanently disabled for plate: " .. plate)
         
         -- Award XP and log success using proper client event
+        print("^2[qb-hackerjob:vehicle_control] ^7About to trigger XP event for brake disable action")
         TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully disabled vehicle brakes')
         
         -- Create thread to maintain disabled brakes until vehicle is repaired
