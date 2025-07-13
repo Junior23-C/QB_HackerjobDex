@@ -37,6 +37,7 @@ end
 -- Function to perform various vehicle actions
 function PerformVehicleAction(action, plate)
     print("^1[qb-hackerjob:vehicle_control] ^7PerformVehicleAction called with action: " .. tostring(action) .. ", plate: " .. tostring(plate))
+    print("^1[qb-hackerjob:vehicle_control] ^7THIS DEBUG MESSAGE SHOULD APPEAR IF FUNCTION IS CALLED!")
     
     -- Check if player is in cooldown
     if controlCooldown then

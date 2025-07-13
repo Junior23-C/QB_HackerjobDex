@@ -773,6 +773,7 @@ RegisterNUICallback('getNearbyVehicles', function(_, cb)
 end)
 
 RegisterNUICallback('performVehicleAction', function(data, cb)
+    print("^1[qb-hackerjob:laptop] ^7performVehicleAction NUI callback triggered with action: " .. tostring(data.action) .. ", plate: " .. tostring(data.plate))
     updateLastInteraction()
     
     -- Map action to drain type
@@ -796,9 +797,34 @@ RegisterNUICallback('performVehicleAction', function(data, cb)
     
     -- Perform the actual vehicle action
     if data.action and data.plate then
-        local success = exports["qb-hackerjob"]:PerformVehicleAction(data.action, data.plate)
+        print("^3[qb-hackerjob:laptop] ^7About to call PerformVehicleAction export with action: " .. tostring(data.action) .. ", plate: " .. tostring(data.plate))
+        local resourceName = GetCurrentResourceName()
+        print("^3[qb-hackerjob:laptop] ^7Current resource name: " .. tostring(resourceName))
+        
+        -- Try calling the export with error handling
+        local success = false
+        local status, result = pcall(function()
+            return exports[resourceName]:PerformVehicleAction(data.action, data.plate)
+        end)
+        
+        if status then
+            success = result
+            print("^2[qb-hackerjob:laptop] ^7PerformVehicleAction export succeeded, returned: " .. tostring(success))
+        else
+            print("^1[qb-hackerjob:laptop] ^7PerformVehicleAction export failed with error: " .. tostring(result))
+            -- Try calling the function directly as fallback
+            print("^3[qb-hackerjob:laptop] ^7Trying direct function call as fallback...")
+            status, result = pcall(PerformVehicleAction, data.action, data.plate)
+            if status then
+                success = result
+                print("^2[qb-hackerjob:laptop] ^7Direct function call succeeded, returned: " .. tostring(success))
+            else
+                print("^1[qb-hackerjob:laptop] ^7Direct function call also failed: " .. tostring(result))
+            end
+        end
         cb({success = success})
     else
+        print("^1[qb-hackerjob:laptop] ^7Missing action or plate data!")
         cb({success = false})
     end
 end)

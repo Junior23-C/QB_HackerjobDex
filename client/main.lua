@@ -379,6 +379,12 @@ RegisterCommand('testxp', function()
     TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'plateLookup', 'TEST123', 'Testing XP system')
 end, false)
 
+-- Debug command to test vehicle control XP
+RegisterCommand('testvehiclexp', function()
+    print("^2[qb-hackerjob] ^7Testing vehicle control XP system...")
+    TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', 'TEST123', 'Testing vehicle control XP')
+end, false)
+
 -- Debug command to check current XP
 RegisterCommand('checkxpclient', function()
     print("^2[qb-hackerjob] ^7Checking XP from client...")
