@@ -292,4 +292,5 @@ This resource is compatible with:
 
 ### License
 MIT License #   q b - h a c k e r j o b  
+ #   Q B _ H a c k e r j o b D e x  
  
