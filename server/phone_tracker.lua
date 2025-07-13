@@ -53,6 +53,11 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getPlayerByPhone', function
             }
             
             cb({ success = true, data = targetData })
+            
+            -- Award XP for successful phone tracking
+            if Config.XPEnabled and Config.XPSettings and Config.XPSettings.phoneTrack then
+                TriggerClientEvent('qb-hackerjob:client:handleHackSuccess', src, 'phoneTrack', phone, 'Phone tracking successful')
+            end
         else
             cb({ success = false, message = "Player not found" })
         end

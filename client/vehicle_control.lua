@@ -82,13 +82,8 @@ function PerformVehicleAction(action, plate)
         -- Notify vehicle owner/driver
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been locked remotely")
         
-        -- Award XP and log success - DIRECT SERVER CALL
-        TriggerServerEvent('qb-hackerjob:server:addXP', 'vehicleControl')
-        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully locked vehicle')
-        TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', 'vehicleControl')
-        
-        -- Show XP notification directly
-        QBCore.Functions.Notify("Hack successful: +25 XP", "success")
+        -- Award XP and log success using proper client event
+        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully locked vehicle')
         
         return true
         
@@ -111,13 +106,8 @@ function PerformVehicleAction(action, plate)
         -- Notify vehicle owner/driver
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been unlocked remotely")
         
-        -- Award XP and log success - DIRECT SERVER CALL
-        TriggerServerEvent('qb-hackerjob:server:addXP', 'vehicleControl')
-        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully unlocked vehicle')
-        TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', 'vehicleControl')
-        
-        -- Show XP notification directly
-        QBCore.Functions.Notify("Hack successful: +25 XP", "success")
+        -- Award XP and log success using proper client event
+        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully unlocked vehicle')
         
         return true
         
@@ -136,14 +126,8 @@ function PerformVehicleAction(action, plate)
             TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle engine has been remotely enabled")
         end
         
-        -- Award XP and log success - DIRECT SERVER CALL
-        -- This bypasses the event system and directly calls the server
-        TriggerServerEvent('qb-hackerjob:server:addXP', 'vehicleControl')
-        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully toggled vehicle engine')
-        TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', 'vehicleControl')
-        
-        -- Show XP notification directly
-        QBCore.Functions.Notify("Hack successful: +25 XP", "success")
+        -- Award XP and log success using proper client event
+        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully toggled vehicle engine')
         
         return true
         
@@ -189,13 +173,8 @@ function PerformVehicleAction(action, plate)
         
         print("^2[qb-hackerjob] ^7Vehicle brakes permanently disabled for plate: " .. plate)
         
-        -- Award XP and log success - DIRECT SERVER CALL
-        TriggerServerEvent('qb-hackerjob:server:addXP', 'vehicleControl')
-        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully disabled vehicle brakes')
-        TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', 'vehicleControl')
-        
-        -- Show XP notification directly
-        QBCore.Functions.Notify("Hack successful: +25 XP", "success")
+        -- Award XP and log success using proper client event
+        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully disabled vehicle brakes')
         
         -- Create thread to maintain disabled brakes until vehicle is repaired
         CreateThread(function()
@@ -293,13 +272,8 @@ function PerformVehicleAction(action, plate)
             end
         end)
         
-        -- Award XP and log success - DIRECT SERVER CALL
-        TriggerServerEvent('qb-hackerjob:server:addXP', 'vehicleControl')
-        TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully forced vehicle acceleration')
-        TriggerServerEvent('qb-hackerjob:server:increaseTraceLevel', 'vehicleControl')
-        
-        -- Show XP notification directly
-        QBCore.Functions.Notify("Hack successful: +25 XP", "success")
+        -- Award XP and log success using proper client event
+        TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleControl', plate, 'Successfully forced vehicle acceleration')
         
         return true
     end

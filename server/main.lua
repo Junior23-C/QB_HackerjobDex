@@ -440,7 +440,8 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getHackerLevel', function(s
     local Player = QBCore.Functions.GetPlayer(source)
     
     if not Player then
-        cb(1, 0, 0)
+        print("^1[qb-hackerjob:getHackerLevel] Player not found for source: " .. tostring(source))
+        cb(1, 0, 100)
         return
     end
     
@@ -448,22 +449,30 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getHackerLevel', function(s
     
     MySQL.query('SELECT * FROM hacker_skills WHERE citizenid = ?', {citizenid}, function(result)
         if result and #result > 0 then
-            local xp = result[1].xp
-            local level = result[1].level
+            local xp = tonumber(result[1].xp) or 0
+            local level = tonumber(result[1].level) or 1
             
             -- Calculate max XP for the current level
-            local nextLevelThreshold = Config.LevelThresholds[level + 1] or Config.LevelThresholds[5]
-            local currentLevelThreshold = Config.LevelThresholds[level]
+            local nextLevelThreshold = Config.LevelThresholds[level + 1] or Config.LevelThresholds[5] or 1000
+            local currentLevelThreshold = Config.LevelThresholds[level] or 0
             local xpForNextLevel = nextLevelThreshold - currentLevelThreshold
             
+            print(string.format("^2[qb-hackerjob:getHackerLevel] Retrieved stats for %s: Level=%d, XP=%d, NextXP=%d", citizenid, level, xp, xpForNextLevel))
             cb(level, xp, xpForNextLevel)
         else
             -- Create new entry for player if doesn't exist
+            print(string.format("^3[qb-hackerjob:getHackerLevel] Creating new hacker profile for %s", citizenid))
             MySQL.insert('INSERT INTO hacker_skills (citizenid, xp, level) VALUES (?, ?, ?)', {
                 citizenid, 0, 1
-            })
+            }, function(insertId)
+                if insertId then
+                    print(string.format("^2[qb-hackerjob:getHackerLevel] Successfully created profile for %s", citizenid))
+                else
+                    print(string.format("^1[qb-hackerjob:getHackerLevel] Failed to create profile for %s", citizenid))
+                end
+            end)
             
-            cb(1, 0, Config.LevelThresholds[2])
+            cb(1, 0, Config.LevelThresholds[2] or 100)
         end
     end)
 end)

@@ -56,6 +56,11 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:interceptRadio', function(s
             GetPlayerName(src), Player.PlayerData.citizenid, frequency))
         
         cb({ success = true, data = radioData })
+        
+        -- Award XP for successful radio decryption
+        if Config.XPEnabled and Config.XPSettings and Config.XPSettings.radioDecrypt then
+            TriggerClientEvent('qb-hackerjob:client:handleHackSuccess', src, 'radioDecrypt', frequency, 'Radio decryption successful')
+        end
     else
         -- Failed to decrypt
         local failData = {

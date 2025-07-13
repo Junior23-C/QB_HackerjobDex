@@ -281,7 +281,8 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
 
     -- Award XP if lookup was considered successful and XP is enabled
     if lookupSuccessful and Config.XPEnabled and Config.XPSettings and Config.XPSettings.plateLookup then
-        TriggerServerEvent('qb-hackerjob:server:addXP', src, 'plateLookup')
+        -- Trigger client event to handle XP addition (client will trigger server)
+        TriggerClientEvent('qb-hackerjob:client:handleHackSuccess', src, 'plateLookup', plate, 'Vehicle lookup successful')
     end
 end)
 

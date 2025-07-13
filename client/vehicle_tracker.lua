@@ -30,6 +30,9 @@ function AttemptInstallTracker(vehicle, plate)
                 -- Track the vehicle
                 TrackVehicle(vehicle, plate)
                 
+                -- Award XP for successful vehicle tracking
+                TriggerEvent('qb-hackerjob:client:handleHackSuccess', 'vehicleTrack', plate, 'Vehicle tracking successful')
+                
                 isTrackingVehicle = false
                 
                 -- Check for police notification

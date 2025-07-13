@@ -86,13 +86,10 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getPhoneData', function(sou
                         phoneData.messages = GenerateFakeMessages(phoneNumber, 8, 15)
                     end
                     
-                    -- Log the hack
-                    TriggerEvent('qb-hackerjob:server:logActivity', src, 'phoneHack', phoneNumber, true, json.encode({
-                        targetPhone = phoneNumber,
-                        owner = phoneData.owner,
-                        callCount = #phoneData.calls,
-                        messageCount = #phoneData.messages
-                    }))
+                    -- Award XP for successful phone hacking
+                    if Config.XPEnabled and Config.XPSettings and Config.XPSettings.phoneHack then
+                        TriggerClientEvent('qb-hackerjob:client:handleHackSuccess', src, 'phoneHack', phoneNumber, 'Phone hacking successful')
+                    end
                     
                     -- Return the data
                     cb(phoneData)
@@ -103,13 +100,10 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getPhoneData', function(sou
             phoneData.calls = GenerateFakeCalls(phoneNumber, 3, 8)
             phoneData.messages = GenerateFakeMessages(phoneNumber, 5, 12)
             
-            -- Log the hack
-            TriggerEvent('qb-hackerjob:server:logActivity', src, 'phoneHack', phoneNumber, true, json.encode({
-                targetPhone = phoneNumber,
-                owner = "Unknown",
-                callCount = #phoneData.calls,
-                messageCount = #phoneData.messages
-            }))
+            -- Award XP for successful phone hacking
+            if Config.XPEnabled and Config.XPSettings and Config.XPSettings.phoneHack then
+                TriggerClientEvent('qb-hackerjob:client:handleHackSuccess', src, 'phoneHack', phoneNumber, 'Phone hacking successful')
+            end
             
             -- Return the data
             cb(phoneData)
