@@ -483,7 +483,53 @@ function CloseLaptop()
 end
 
 -- Used for usable item
--- Note: openLaptop event handler moved to main.lua to include XP data
+-- Enhanced laptop opening event with job/battery checks and XP fetching
+RegisterNetEvent('qb-hackerjob:client:openLaptop')
+AddEventHandler('qb-hackerjob:client:openLaptop', function()
+    print("^2[qb-hackerjob] ^7openLaptop event triggered")
+    
+    -- Job check using the same callback as main.lua
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
+        if not hasJob then
+            QBCore.Functions.Notify('You don\'t know how to use this device', "error")
+            return
+        end
+        
+        -- Get updated hacker level *before* opening NUI  
+        QBCore.Functions.TriggerCallback('qb-hackerjob:server:getHackerLevel', function(level, xp, nextLevelXP)
+            -- Battery check
+            if Config.Battery.enabled then
+                local PlayerData = QBCore.Functions.GetPlayerData()
+                local batteryLevel = PlayerData.metadata.laptopBattery or Config.Battery.maxCharge
+                
+                -- Check if battery is critically low
+                if batteryLevel <= Config.Battery.criticalBatteryThreshold then
+                    QBCore.Functions.Notify('Laptop battery critical! Needs charging or replacement', "error")
+                    return
+                end
+            end
+            
+            -- Open laptop with XP data
+            local xpData = {
+                level = level,
+                xp = xp,
+                nextLevelXP = nextLevelXP,
+                levelName = Config.LevelNames[level] or "Unknown Level",
+                features = Config.LevelUnlocks[level] or {}
+            }
+            
+            print("^2[qb-hackerjob] ^7Opening laptop with fetched XP data:", json.encode(xpData))
+            OpenHackerLaptop(xpData)
+        end)
+    end)
+end)
+
+-- Event handler for laptop opening with XP data
+RegisterNetEvent('qb-hackerjob:client:openLaptopWithXP')
+AddEventHandler('qb-hackerjob:client:openLaptopWithXP', function(xpData)
+    print("^2[qb-hackerjob] ^7openLaptopWithXP event triggered with data:", json.encode(xpData))
+    OpenHackerLaptop(xpData)
+end)
 
 -- Battery management events
 RegisterNetEvent('qb-hackerjob:client:replaceBattery')

@@ -722,45 +722,4 @@ AddEventHandler('qb-hackerjob:client:updateStats', function(stats)
     end
 end)
 
--- Open laptop with level check
-RegisterNetEvent('qb-hackerjob:client:openLaptop')
-AddEventHandler('qb-hackerjob:client:openLaptop', function()
-    -- Job check
-    QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
-        if not hasJob then
-            QBCore.Functions.Notify('You don\'t know how to use this device', "error")
-            return
-        end
-        
-        -- Get updated hacker level *before* opening NUI
-        GetHackerLevel(function(level, xp, nextXP)
-            -- Battery check
-            if Config.Battery.enabled then
-            -- Get battery level from PlayerData metadata
-            local batteryLevel = PlayerData.metadata.laptopBattery or Config.Battery.maxCharge
-            
-                -- Get battery level from PlayerData metadata
-                local batteryLevel = PlayerData.metadata.laptopBattery or Config.Battery.maxCharge
-                
-                -- Check if battery is critically low
-                if batteryLevel <= Config.Battery.criticalBatteryThreshold then
-                    QBCore.Functions.Notify('Laptop battery critical! Needs charging or replacement', "error")
-                    return
-                end
-            end
-            
-            -- Open the laptop UI now that we have the level/XP data
-            -- Call the proper laptop opening function with XP data
-            exports['qb-hackerjob']:OpenHackerLaptop({
-                level = level,
-                xp = xp,
-                nextLevelXP = nextXP,
-                levelName = Config.LevelNames[level] or "Unknown Level",
-                features = Config.LevelUnlocks[level] or {} -- Send features unlocked at this level
-            })
-            
-            -- Show XP progress (optional, could be handled by NUI itself)
-            -- ShowXPBar() -- Commented out as NUI will handle display
-        end)
-    end)
-end)
+-- Note: Laptop opening logic moved to laptop.lua to avoid conflicts
