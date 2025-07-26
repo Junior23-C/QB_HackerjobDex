@@ -123,7 +123,7 @@ RegisterNUICallback('phoneHackPasswordComplete', function(data, cb)
                 })
                 
                 -- Handle success
-                exports['qb-hackerjob']:AwardXP('phoneHack')
+                exports['QB_HackerjobDex']:AwardXP('phoneHack')
                 TriggerServerEvent('qb-hackerjob:server:logActivity', 'phoneHack', currentPhoneNumber, true, 'Successfully hacked phone')
                 
                 -- Notify the player

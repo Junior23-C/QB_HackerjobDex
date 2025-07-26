@@ -31,7 +31,7 @@ function AttemptInstallTracker(vehicle, plate)
                 TrackVehicle(vehicle, plate)
                 
                 -- Award XP and log activity
-                exports['qb-hackerjob']:AwardXP('vehicleTrack')
+                exports['QB_HackerjobDex']:AwardXP('vehicleTrack')
                 TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleTrack', plate, true, 'Vehicle tracking successful')
                 
                 isTrackingVehicle = false
@@ -119,7 +119,7 @@ function TrackVehicle(veh, plate)
     QBCore.Functions.Notify("Vehicle tracking active for " .. math.floor(Config.VehicleTracking.trackDuration / 60000) .. " minutes", "success")
     
     -- Award XP and log activity
-    exports['qb-hackerjob']:AwardXP('vehicleTrack')
+    exports['QB_HackerjobDex']:AwardXP('vehicleTrack')
     TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleTrack', plate, true, 'Successfully installed GPS tracker')
     
     -- Flash the blip to make it more noticeable

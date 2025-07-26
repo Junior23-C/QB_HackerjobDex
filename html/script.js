@@ -1918,12 +1918,14 @@ window.addEventListener('message', function(event) {
                     break;
                     
                 case 'updateHackerStats':
+                    console.log('Received updateHackerStats message:', data);
                     try {
                         const level = (typeof data.level === 'number' && data.level > 0) ? data.level : 1;
                         const xp = (typeof data.xp === 'number' && data.xp >= 0) ? data.xp : 0;
                         const nextXP = (typeof data.nextLevelXP === 'number' && data.nextLevelXP > 0) ? data.nextLevelXP : 100;
                         const levelName = (typeof data.levelName === 'string' && data.levelName.length > 0) ? data.levelName : "Script Kiddie";
                         
+                        console.log('Processed stats - Level:', level, 'XP:', xp, 'NextXP:', nextXP, 'Name:', levelName);
                         safeLogDebug('Updating hacker stats - Level: ' + level + ', XP: ' + xp + ', NextXP: ' + nextXP + ', Name: ' + levelName);
                         
                         // Update global vars

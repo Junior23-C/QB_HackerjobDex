@@ -103,7 +103,7 @@ function PerformVehicleAction(action, plate)
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been locked remotely")
         
         -- Award XP and log activity
-        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        exports['QB_HackerjobDex']:AwardXP('vehicleControl')
         TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully locked vehicle')
         
         return true
@@ -128,7 +128,7 @@ function PerformVehicleAction(action, plate)
         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Your vehicle has been unlocked remotely")
         
         -- Award XP and log activity
-        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        exports['QB_HackerjobDex']:AwardXP('vehicleControl')
         TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully unlocked vehicle')
         
         return true
@@ -149,7 +149,7 @@ function PerformVehicleAction(action, plate)
         end
         
         -- Award XP and log activity
-        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        exports['QB_HackerjobDex']:AwardXP('vehicleControl')
         TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully toggled vehicle engine')
         
         return true
@@ -197,7 +197,7 @@ function PerformVehicleAction(action, plate)
         -- Vehicle brakes disabled
         
         -- Award XP and log activity
-        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        exports['QB_HackerjobDex']:AwardXP('vehicleControl')
         TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully disabled vehicle brakes')
         
         -- Create thread to maintain disabled brakes until vehicle is repaired
@@ -296,7 +296,7 @@ function PerformVehicleAction(action, plate)
         end)
         
         -- Award XP and log activity
-        exports['qb-hackerjob']:AwardXP('vehicleControl')
+        exports['QB_HackerjobDex']:AwardXP('vehicleControl')
         TriggerServerEvent('qb-hackerjob:server:logActivity', 'vehicleControl', plate, true, 'Successfully forced vehicle acceleration')
         
         return true

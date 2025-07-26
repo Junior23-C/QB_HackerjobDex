@@ -94,7 +94,7 @@ function TrackPhoneNumber(phone, isCommand)
             QBCore.Functions.Notify(Lang:t('success.phone_tracked'), "success")
             
             -- Award XP and log activity
-            exports['qb-hackerjob']:AwardXP('phoneTrack')
+            exports['QB_HackerjobDex']:AwardXP('phoneTrack')
             TriggerServerEvent('qb-hackerjob:server:logActivity', 'phoneTrack', phone, true, 'Successfully tracked phone')
             
             -- Return data for external use

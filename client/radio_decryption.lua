@@ -95,7 +95,7 @@ function DecryptRadioFrequency(frequency, isCommand)
             QBCore.Functions.Notify(Lang:t('success.radio_decrypted'), "success")
             
             -- Award XP and log activity
-            exports['qb-hackerjob']:AwardXP('radioDecrypt')
+            exports['QB_HackerjobDex']:AwardXP('radioDecrypt')
             TriggerServerEvent('qb-hackerjob:server:logActivity', 'radioDecrypt', frequency, true, 'Successfully decrypted radio signal')
             
             -- Return data for external use

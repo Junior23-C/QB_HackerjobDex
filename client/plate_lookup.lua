@@ -195,7 +195,7 @@ function PerformLookupQuery(plate)
             })
             
             -- Award XP and log activity
-            exports['qb-hackerjob']:AwardXP('plateLookup')
+            exports['QB_HackerjobDex']:AwardXP('plateLookup')
             TriggerServerEvent('qb-hackerjob:server:logActivity', 'plateLookup', plate, true, 'Successfully looked up vehicle')
             
             -- Return data for external use

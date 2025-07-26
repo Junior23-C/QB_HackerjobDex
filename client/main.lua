@@ -260,8 +260,8 @@ AddEventHandler('onResourceStop', function(resourceName)
     
     -- Safe laptop cleanup
     pcall(function()
-        if exports['qb-hackerjob']:IsLaptopOpen() then
-            exports['qb-hackerjob']:CloseLaptop()
+        if exports['QB_HackerjobDex']:IsLaptopOpen() then
+            exports['QB_HackerjobDex']:CloseLaptop()
             SafeLogDebug('Laptop closed during resource stop')
         end
     end)
@@ -707,10 +707,13 @@ end
 -- Handle XP stats updates from server
 RegisterNetEvent('hackerjob:updateStats')
 AddEventHandler('hackerjob:updateStats', function(stats)
-    -- Received stats update from server
+    print("^2[qb-hackerjob:main] ^7Received stats update from server:", json.encode(stats))
     
     -- Always try to update laptop UI if open
-    if exports['qb-hackerjob']:IsLaptopOpen() then
+    local laptopIsOpen = exports['QB_HackerjobDex']:IsLaptopOpen()
+    print("^2[qb-hackerjob:main] ^7Laptop open status:", laptopIsOpen)
+    
+    if laptopIsOpen then
         -- Updating laptop UI with new stats
         SendNUIMessage({
             action = 'updateHackerStats',
@@ -788,7 +791,7 @@ end, false)
 RegisterCommand('openlaptop', function()
     -- Force opening laptop interface
     local testStats = {level = 1, xp = 0, nextLevelXP = 100, levelName = "Script Kiddie"}
-    exports['qb-hackerjob']:OpenHackerLaptop(testStats)
+    exports['QB_HackerjobDex']:OpenHackerLaptop(testStats)
 end, false)
 
 -- Handle metadata updates
@@ -797,7 +800,7 @@ AddEventHandler('QBCore:Player:SetPlayerData', function(val)
     PlayerData = val
     
     -- Check if laptop is open and update stats when metadata changes
-    if exports['qb-hackerjob']:IsLaptopOpen() and val.metadata then
+    if exports['QB_HackerjobDex']:IsLaptopOpen() and val.metadata then
         local stats = GetPlayerXPData()
         -- Metadata updated, refreshing UI
         SendNUIMessage({
