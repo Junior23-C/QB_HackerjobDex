@@ -178,8 +178,9 @@ $(document).ready(function() {
         // Initialize with error handling
         resetUI();
         setupEventHandlers();
-        setupDragFunctionality();
+        setupTouchGestures();
         updateClock();
+        updateGreeting();
         
         safeLogInfo('Laptop interface initialization completed successfully');
     } catch (err) {
@@ -214,9 +215,9 @@ $(document).ready(function() {
         setInterval(() => {
             try {
                 updateClock();
-                // Reduce frequency if laptop has been idle
+                // Reduce frequency if phone has been idle
                 const now = Date.now();
-                if (now - laptopLastUsed > 300000) { // If idle for 5+ minutes
+                if (now - phoneLastUsed > 300000) { // If idle for 5+ minutes
                     clockUpdateInterval = 120000; // Update every 2 minutes when idle
                 } else {
                     clockUpdateInterval = 60000; // Normal frequency when active
@@ -415,7 +416,7 @@ function setupEventHandlers() {
         $(document).on('keyup', function(e) {
             try {
                 if (e.keyCode === 27) {
-                    closeLaptop();
+                    closePhone();
                 }
             } catch (err) {
                 safeLogError('Error handling escape key: ' + err.message);
@@ -497,15 +498,16 @@ function openLaptop(data) {
             currentLevelName = "Script Kiddie";
         }
 
-        laptopOpen = true;
+        phoneOpen = true;
+        phoneLastUsed = Date.now();
 
         // Safe UI setup
-        const laptopContainer = $('#laptop-container');
-        if (laptopContainer.length === 0) {
-            throw new Error('Laptop container element not found');
+        const phoneContainer = $('#phone-container');
+        if (phoneContainer.length === 0) {
+            throw new Error('Phone container element not found');
         }
         
-        laptopContainer.removeClass('hidden').addClass('visible');
+        phoneContainer.removeClass('hidden').addClass('visible');
         
         // Safe cleanup of existing battery elements
         try {
@@ -533,16 +535,16 @@ function openLaptop(data) {
         if (!useAnimations) {
             try {
                 const bootScreen = $('#boot-screen');
-                const desktop = $('#desktop');
+                const homeScreen = $('#home-screen');
                 
                 if (bootScreen.length > 0) {
                     bootScreen.addClass('hidden');
                 }
-                if (desktop.length > 0) {
-                    desktop.removeClass('hidden');
+                if (homeScreen.length > 0) {
+                    homeScreen.removeClass('hidden');
                 }
                 
-                safeLogDebug('Laptop opened successfully without animations');
+                safeLogDebug('Phone opened successfully without animations');
                 return;
             } catch (err) {
                 safeLogError('Error during no-animation boot: ' + err.message);
@@ -632,9 +634,9 @@ function openLaptop(data) {
             }
         }
     } catch (err) {
-        safeLogError('Error in openLaptop function: ' + err.message);
+        safeLogError('Error in openPhone function: ' + err.message);
         // Reset state on error
-        laptopOpen = false;
+        phoneOpen = false;
     }
 }
 
@@ -645,8 +647,8 @@ function createBatteryIndicator() {
     // Remove if it already exists
     $('#battery-indicator, #battery-menu').remove();
 
-    // Add battery element to taskbar
-    $('.taskbar').append(`
+    // Add battery element to status bar
+    $('.status-right').append(`
         <div id="battery-indicator" class="battery-indicator">
             <div class="battery-icon"></div>
             <div class="battery-percentage">100%</div>
@@ -881,7 +883,7 @@ function closeLaptop() {
             }
         }, 500);
     } catch (err) {
-        safeLogError('Error in closeLaptop function: ' + err.message);
+        safeLogError('Error in closePhone function: ' + err.message);
         // Force reset UI as fallback
         try {
             resetUI();
@@ -891,94 +893,94 @@ function closeLaptop() {
     }
 }
 
-// Open an app window
+// Open an app screen
 function openApp(appName) {
+    phoneLastUsed = Date.now();
+    
     // Close any currently open app
-    if (activeAppWindow) {
-        $(`#${activeAppWindow}`).addClass('hidden');
+    if (activeAppScreen) {
+        $(`#${activeAppScreen}`).addClass('hidden');
     }
 
     // Determine which app to open
-    let appWindow;
+    let appScreen;
     let initialTab = null;
 
     switch (appName) {
         case 'plate-lookup':
-            appWindow = 'plate-lookup-app';
+            appScreen = 'plate-lookup-app';
             initialTab = 'search'; // Default to search tab
-            // ### Ensure Nearby tab/pane are hidden when app opens ###
-            $('#plate-lookup-app .tab[data-tab="nearby"]').hide();
-            $('#nearby-tab').hide();
-            // ######################################################
             break;
         case 'phone-tracker':
-            appWindow = 'phone-tracker-app';
-            // Check if phone tracker is enabled
-            $.post('https://qb-hackerjob/getPhoneTools', JSON.stringify({}), function(response) {
-                if (!response.enabled) {
-                    // TODO: Show error message that this tool is disabled
-                }
-            });
+            appScreen = 'phone-tracker-app';
+            initialTab = 'phone-search';
             break;
         case 'radio-decrypt':
-            appWindow = 'radio-decrypt-app';
-            // Check if radio decryption is enabled
-            $.post('https://qb-hackerjob/getRadioTools', JSON.stringify({}), function(response) {
-                if (!response.enabled) {
-                    // TODO: Show error message that this tool is disabled
-                }
-            });
+            appScreen = 'radio-decrypt-app';
+            initialTab = 'radio-search';
             break;
         default:
             console.error('Unknown app:', appName);
             return;
     }
 
-    // Open the app window
-    activeAppWindow = appWindow;
-    $(`#${appWindow}`).removeClass('hidden');
+    // Open the app screen
+    activeAppScreen = appScreen;
+    $(`#${appScreen}`).removeClass('hidden');
 
     // Set initial active tab if specified
     if (initialTab) {
-        // Deactivate all tabs and panes first
-        $(`#${appWindow}`).find('.tab').removeClass('active');
-        $(`#${appWindow}`).find('.tab-pane').removeClass('active');
+        // Deactivate all tabs and content first
+        $(`#${appScreen}`).find('.tab-item').removeClass('active');
+        $(`#${appScreen}`).find('.tab-content').removeClass('active');
 
-        // Activate the specified initial tab and pane
-        $(`#${appWindow}`).find(`.tab[data-tab="${initialTab}"]`).addClass('active');
-        $(`#${appWindow}`).find(`#${initialTab}-tab`).addClass('active');
-    } else {
-        // Default behavior if no initial tab (e.g., for other apps)
-        // Ensure the first tab/pane is active if none specified
-        if ($(`#${appWindow}`).find('.tab.active').length === 0) {
-            $(`#${appWindow}`).find('.tab:first').addClass('active');
-            $(`#${appWindow}`).find('.tab-pane:first').addClass('active');
-        }
+        // Activate the specified initial tab and content
+        $(`#${appScreen}`).find(`.tab-item[data-tab="${initialTab}"]`).addClass('active');
+        $(`#${appScreen}`).find(`#${initialTab}-tab`).addClass('active');
     }
-
-    // Ensure the app window is draggable and resizable if needed
-    // Consider making windows draggable:
-    // $(`#${appWindow}`).draggable({ handle: ".window-header" });
 }
 
-// Close an app window
-function closeApp(appWindowId) {
-    $(`#${appWindowId}`).addClass('hidden');
-    activeAppWindow = null;
+// Close an app screen and return to home
+function closeApp(appScreenId) {
+    $(`#${appScreenId}`).addClass('hidden');
+    activeAppScreen = null;
+    $('#home-screen').removeClass('hidden');
+    phoneLastUsed = Date.now();
 }
 
-// Minimize an app window
-function minimizeApp(appWindowId) {
-    $(`#${appWindowId}`).addClass('hidden');
-    activeAppWindow = null;
+// Go back to home screen
+function goToHome() {
+    if (activeAppScreen) {
+        $(`#${activeAppScreen}`).addClass('hidden');
+        activeAppScreen = null;
+    }
+    $('#home-screen').removeClass('hidden');
+    phoneLastUsed = Date.now();
 }
 
-// Update the clock in the taskbar
+// Update the clock in the status bar
 function updateClock() {
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
     $('#clock').text(`${hours}:${minutes}`);
+}
+
+// Update greeting based on time of day
+function updateGreeting() {
+    const now = new Date();
+    const hour = now.getHours();
+    let greeting;
+    
+    if (hour < 12) {
+        greeting = 'Good morning';
+    } else if (hour < 17) {
+        greeting = 'Good afternoon';
+    } else {
+        greeting = 'Good evening';
+    }
+    
+    $('.greeting').text(greeting);
 }
 
 // Play sound effects - Empty function that does nothing
@@ -1590,18 +1592,20 @@ window.addEventListener('message', function(event) {
         
         try {
             switch (action) {
-                case 'openLaptop':
+                case 'openPhone':
+                case 'openLaptop': // Keep backward compatibility
                     // Safe data extraction
                     currentLevel = (typeof data.level === 'number' && data.level > 0) ? data.level : 1;
                     currentXP = (typeof data.xp === 'number' && data.xp >= 0) ? data.xp : 0;
                     nextLevelXP = (typeof data.nextLevelXP === 'number' && data.nextLevelXP > 0) ? data.nextLevelXP : 100;
                     currentLevelName = (typeof data.levelName === 'string' && data.levelName.length > 0) ? data.levelName : "Script Kiddie";
                     
-                    openLaptop(data);
+                    openPhone(data);
                     break;
                     
-                case 'closeLaptop':
-                    closeLaptop();
+                case 'closePhone':
+                case 'closeLaptop': // Keep backward compatibility
+                    closePhone();
                     break;
                     
                 case 'updateVehicleData':
@@ -1840,77 +1844,38 @@ window.addEventListener('DOMContentLoaded', function() {
     document.head.appendChild(styleElement);
 });
 
-// Drag functionality for laptop window
-function setupDragFunctionality() {
-    const laptopContainer = document.getElementById('laptop-container');
-    let isDragging = false;
-    let currentX = 0;
+// Touch gesture handling for phone interface
+function setupTouchGestures() {
+    const phoneContainer = document.getElementById('phone-container');
+    let startY = 0;
     let currentY = 0;
-    let initialX = 0;
-    let initialY = 0;
-    let xOffset = 0;
-    let yOffset = 0;
+    let isDragging = false;
 
-    // Mouse events
-    laptopContainer.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', dragMove);
-    document.addEventListener('mouseup', dragEnd);
+    // Touch events for swipe gestures
+    phoneContainer.addEventListener('touchstart', touchStart, { passive: true });
+    phoneContainer.addEventListener('touchmove', touchMove, { passive: true });
+    phoneContainer.addEventListener('touchend', touchEnd, { passive: true });
 
-    // Touch events for mobile support
-    laptopContainer.addEventListener('touchstart', dragStart);
-    document.addEventListener('touchmove', dragMove);
-    document.addEventListener('touchend', dragEnd);
-
-    function dragStart(e) {
-        // Allow dragging from taskbar area only (avoid interfering with app content)
-        const target = e.target;
-        const isTaskbarArea = target.closest('.taskbar') || target.classList.contains('taskbar');
-        
-        if (!isTaskbarArea) return; // Only drag from taskbar area
-        
-        if (e.type === 'touchstart') {
-            initialX = e.touches[0].clientX - xOffset;
-            initialY = e.touches[0].clientY - yOffset;
-        } else {
-            initialX = e.clientX - xOffset;
-            initialY = e.clientY - yOffset;
-        }
-
+    function touchStart(e) {
+        startY = e.touches[0].clientY;
         isDragging = true;
-        laptopContainer.style.transition = 'none';
     }
 
-    function dragMove(e) {
-        if (isDragging) {
-            e.preventDefault();
-            
-            if (e.type === 'touchmove') {
-                currentX = e.touches[0].clientX - initialX;
-                currentY = e.touches[0].clientY - initialY;
-            } else {
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-            }
-
-            xOffset = currentX;
-            yOffset = currentY;
-
-            // Keep window within viewport bounds
-            const rect = laptopContainer.getBoundingClientRect();
-            const maxX = window.innerWidth - rect.width;
-            const maxY = window.innerHeight - rect.height;
-            
-            xOffset = Math.max(-rect.width / 2, Math.min(xOffset, maxX - rect.width / 2));
-            yOffset = Math.max(-rect.height / 2, Math.min(yOffset, maxY - rect.height / 2));
-
-            laptopContainer.style.transform = `translate(calc(-50% + ${xOffset}px), calc(-50% + ${yOffset}px))`;
-        }
+    function touchMove(e) {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
     }
 
-    function dragEnd() {
-        if (isDragging) {
-            isDragging = false;
-            laptopContainer.style.transition = 'opacity 0.3s ease';
+    function touchEnd(e) {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const deltaY = currentY - startY;
+        const threshold = 100;
+
+        // Swipe down from top to close phone (if no active app)
+        if (deltaY > threshold && startY < 100 && !activeAppScreen) {
+            closePhone();
         }
     }
 }

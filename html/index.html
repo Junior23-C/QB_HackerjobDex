@@ -2,100 +2,191 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hacker Laptop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>HackerOS</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="laptop-container" class="hidden">
-        <div id="laptop-screen">
-            <!-- Matrix Background -->
-            <div class="matrix-bg"></div>
+    <div id="phone-container" class="hidden">
+        <div id="phone-screen">
+            <!-- Background Effects -->
+            <div class="background-gradient"></div>
 
             <!-- Boot Screen -->
             <div id="boot-screen" class="screen">
                 <div class="boot-content">
-                    <div class="logo glow-text">NETSEC OS v2.5</div>
+                    <div class="boot-logo">
+                        <div class="logo-icon">⚡</div>
+                        <div class="logo-text">HackerOS</div>
+                        <div class="logo-version">v3.0</div>
+                    </div>
                     <div class="boot-progress">
                         <div class="boot-progress-bar"></div>
                     </div>
-                    <div class="boot-text">INITIALIZING SECURE SHELL...</div>
+                    <div class="boot-text">Initializing secure environment...</div>
                 </div>
             </div>
 
-            <!-- Desktop -->
-            <div id="desktop" class="screen hidden">
-                <div class="taskbar">
-                    <div class="start-button">NETSEC</div>
-                    <div class="hacker-stats">
-                        <span id="hacker-level-name">Level 1</span> |
-                        <span id="hacker-xp-progress">XP: 0 / 100</span>
+            <!-- Home Screen -->
+            <div id="home-screen" class="screen hidden">
+                <!-- Status Bar -->
+                <div class="status-bar">
+                    <div class="status-left">
+                        <div class="signal-bars">
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                        </div>
+                        <span class="carrier">HackerNet</span>
                     </div>
-                    <div id="battery-indicator" class="battery-indicator">
-                        <!-- Battery indicator will be created by JS -->
+                    <div class="status-center">
+                        <div class="time" id="clock">00:00</div>
                     </div>
-                    <div class="time" id="clock">00:00</div>
+                    <div class="status-right">
+                        <div id="battery-indicator" class="battery-indicator">
+                            <!-- Battery indicator will be created by JS -->
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Battery Menu -->
                 <div id="battery-menu" class="battery-menu hidden">
                     <!-- Battery menu will be created by JS -->
                 </div>
 
-                <div class="desktop-icons">
-                    <div class="desktop-icon" data-app="plate-lookup">
-                        <div class="icon-image"><img src="img/plate-lookup.png" alt="Plate Lookup" onerror="this.src='https://via.placeholder.com/48'"></div>
-                        <div class="icon-text">Plate Lookup</div>
+                <!-- Home Header -->
+                <div class="home-header">
+                    <div class="greeting">Good evening</div>
+                    <div class="hacker-profile">
+                        <div class="profile-info">
+                            <div class="profile-name" id="hacker-level-name">Level 1</div>
+                            <div class="profile-xp" id="hacker-xp-progress">XP: 0 / 100</div>
+                        </div>
+                        <div class="profile-avatar">👤</div>
                     </div>
-                    <div class="desktop-icon" data-app="phone-tracker">
-                        <div class="icon-image"><img src="img/phone-tracker.png" alt="Phone Tracker" onerror="this.src='https://via.placeholder.com/48'"></div>
-                        <div class="icon-text">Phone Tracker</div>
+                </div>
+
+                <!-- App Grid -->
+                <div class="app-grid">
+                    <div class="app-section">
+                        <h3 class="section-title">Tools</h3>
+                        <div class="app-row">
+                            <div class="app-card" data-app="plate-lookup">
+                                <div class="app-icon">🚗</div>
+                                <div class="app-info">
+                                    <div class="app-name">Vehicle Scanner</div>
+                                    <div class="app-desc">Lookup vehicle data</div>
+                                </div>
+                            </div>
+                            <div class="app-card" data-app="phone-tracker">
+                                <div class="app-icon">📱</div>
+                                <div class="app-info">
+                                    <div class="app-name">Phone Tracker</div>
+                                    <div class="app-desc">Track mobile devices</div>
+                                </div>
+                            </div>
+                            <div class="app-card" data-app="radio-decrypt">
+                                <div class="app-icon">📡</div>
+                                <div class="app-info">
+                                    <div class="app-name">Radio Decrypt</div>
+                                    <div class="app-desc">Decrypt radio signals</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="desktop-icon" data-app="radio-decrypt">
-                        <div class="icon-image"><img src="img/radio-decrypt.png" alt="Radio Decryption" onerror="this.src='https://via.placeholder.com/48'"></div>
-                        <div class="icon-text">Radio Decrypt</div>
+                </div>
+
+                <!-- Bottom Navigation -->
+                <div class="bottom-nav">
+                    <div class="nav-item active" data-tab="home">
+                        <div class="nav-icon">🏠</div>
+                        <div class="nav-label">Home</div>
+                    </div>
+                    <div class="nav-item" data-tab="tools">
+                        <div class="nav-icon">🛠️</div>
+                        <div class="nav-label">Tools</div>
+                    </div>
+                    <div class="nav-item" data-tab="settings">
+                        <div class="nav-icon">⚙️</div>
+                        <div class="nav-label">Settings</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Plate Lookup App -->
-            <div id="plate-lookup-app" class="app-window hidden">
-                <div class="window-header">
-                    <div class="window-title">Vehicle Plate Lookup</div>
-                    <div class="window-controls">
-                        <div class="window-minimize" title="Minimize">_</div>
-                        <div class="window-close" title="Close">X</div>
+            <!-- Vehicle Scanner App -->
+            <div id="plate-lookup-app" class="app-screen hidden">
+                <!-- App Header -->
+                <div class="app-header">
+                    <button class="back-button" title="Back to Home">←</button>
+                    <div class="app-title">
+                        <div class="app-icon-small">🚗</div>
+                        <span>Vehicle Scanner</span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-icon" title="Refresh">🔄</button>
                     </div>
                 </div>
-                <div class="window-content">
-                    <div class="tabs">
-                        <div class="tab active" data-tab="search">Search</div>
-                        <div class="tab" data-tab="nearby">Nearby</div>
-                        <div class="tab" data-tab="results">Results</div>
+
+                <!-- Tab Navigation -->
+                <div class="tab-nav">
+                    <div class="tab-item active" data-tab="search">
+                        <div class="tab-icon">🔍</div>
+                        <span>Search</span>
+                    </div>
+                    <div class="tab-item" data-tab="results">
+                        <div class="tab-icon">📊</div>
+                        <span>Results</span>
+                    </div>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="app-content">
+                    <!-- Search Tab -->
+                    <div class="tab-content active" id="search-tab">
+                        <div class="search-section">
+                            <div class="search-header">
+                                <h2>Vehicle Lookup</h2>
+                                <p>Enter a license plate to search vehicle database</p>
+                            </div>
+                            
+                            <div class="input-card">
+                                <div class="input-group">
+                                    <label for="plate-input">License Plate</label>
+                                    <div class="input-wrapper">
+                                        <input type="text" id="plate-input" placeholder="ABC123" maxlength="8">
+                                        <div class="input-icon">🚗</div>
+                                    </div>
+                                </div>
+                                <button id="search-plate" class="primary-button">
+                                    <span class="button-icon">🔍</span>
+                                    Search Database
+                                </button>
+                            </div>
+
+                            <div class="recent-searches">
+                                <h3>Recent Searches</h3>
+                                <div class="recent-list" id="recent-searches">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">📄</div>
+                                        <p>No recent searches</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="tab-content">
-                        <!-- Search Tab -->
-                        <div class="tab-pane active" id="search-tab">
-                            <div class="input-group">
-                                <label for="plate-input">Enter License Plate:</label>
-                                <input type="text" id="plate-input" placeholder="ABC123" maxlength="8">
-                            </div>
-                            <button id="search-plate" class="action-button">SEARCH DATABASE</button>
-                        </div>
-
-                        <!-- Nearby Tab -->
-                        <div class="tab-pane" id="nearby-tab">
-                            <div class="nearby-vehicles-list" id="nearby-vehicles">
-                                <div class="loading-text">Scanning for vehicles...</div>
-                            </div>
-                            <button id="refresh-nearby" class="action-button">REFRESH</button>
-                        </div>
-
-                        <!-- Results Tab -->
-                        <div class="tab-pane" id="results-tab">
-                            <div class="vehicle-info" id="vehicle-info">
-                                <div class="no-results">No search results yet.</div>
+                    <!-- Results Tab -->
+                    <div class="tab-content" id="results-tab">
+                        <div class="results-section">
+                            <div id="vehicle-info">
+                                <div class="empty-state">
+                                    <div class="empty-icon">🔍</div>
+                                    <h3>No Results</h3>
+                                    <p>Search for a vehicle to see results here</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -103,69 +194,155 @@
             </div>
 
             <!-- Phone Tracker App -->
-            <div id="phone-tracker-app" class="app-window hidden">
-                <div class="window-header">
-                    <div class="window-title">Phone Tracker</div>
-                    <div class="window-controls">
-                        <div class="window-minimize" title="Minimize">_</div>
-                        <div class="window-close" title="Close">X</div>
+            <div id="phone-tracker-app" class="app-screen hidden">
+                <!-- App Header -->
+                <div class="app-header">
+                    <button class="back-button" title="Back to Home">←</button>
+                    <div class="app-title">
+                        <div class="app-icon-small">📱</div>
+                        <span>Phone Tracker</span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-icon" title="Settings">⚙️</button>
                     </div>
                 </div>
-                <div class="window-content">
-                    <div class="tabs">
-                        <div class="tab active" data-tab="phone-search">Search</div>
-                        <div class="tab" data-tab="phone-results">Results</div>
+
+                <!-- Tab Navigation -->
+                <div class="tab-nav">
+                    <div class="tab-item active" data-tab="phone-search">
+                        <div class="tab-icon">🔍</div>
+                        <span>Track</span>
+                    </div>
+                    <div class="tab-item" data-tab="phone-results">
+                        <div class="tab-icon">📍</div>
+                        <span>Results</span>
+                    </div>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="app-content">
+                    <!-- Phone Search Tab -->
+                    <div class="tab-content active" id="phone-search-tab">
+                        <div class="search-section">
+                            <div class="search-header">
+                                <h2>Phone Tracker</h2>
+                                <p>Track mobile device location and data</p>
+                            </div>
+                            
+                            <div class="input-card">
+                                <div class="input-group">
+                                    <label for="phone-input">Phone Number</label>
+                                    <div class="input-wrapper">
+                                        <input type="text" id="phone-input" placeholder="555-1234" maxlength="15">
+                                        <div class="input-icon">📱</div>
+                                    </div>
+                                </div>
+                                <button id="track-phone" class="primary-button">
+                                    <span class="button-icon">📍</span>
+                                    Track Device
+                                </button>
+                            </div>
+
+                            <div class="feature-info">
+                                <div class="info-card">
+                                    <div class="info-icon">⚠️</div>
+                                    <div class="info-text">
+                                        <h4>Privacy Notice</h4>
+                                        <p>Phone tracking requires target device to be within network range</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="tab-content">
-                        <!-- Phone Search Tab -->
-                        <div class="tab-pane active" id="phone-search-tab">
-                            <div class="input-group">
-                                <label for="phone-input">Enter Phone Number:</label>
-                                <input type="text" id="phone-input" placeholder="555-1234" maxlength="10">
-                            </div>
-                            <button id="track-phone" class="action-button">TRACK PHONE</button>
-                        </div>
-
-                        <!-- Phone Results Tab -->
-                        <div class="tab-pane" id="phone-results-tab">
-                            <div class="phone-info" id="phone-info">
-                                <div class="no-results">No tracking results yet.</div>
+                    <!-- Phone Results Tab -->
+                    <div class="tab-content" id="phone-results-tab">
+                        <div class="results-section">
+                            <div id="phone-info">
+                                <div class="empty-state">
+                                    <div class="empty-icon">📱</div>
+                                    <h3>No Active Tracks</h3>
+                                    <p>Start tracking a device to see results here</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Radio Decryption App -->
-            <div id="radio-decrypt-app" class="app-window hidden">
-                <div class="window-header">
-                    <div class="window-title">Radio Decryption</div>
-                    <div class="window-controls">
-                        <div class="window-minimize" title="Minimize">_</div>
-                        <div class="window-close" title="Close">X</div>
+            <!-- Radio Decrypt App -->
+            <div id="radio-decrypt-app" class="app-screen hidden">
+                <!-- App Header -->
+                <div class="app-header">
+                    <button class="back-button" title="Back to Home">←</button>
+                    <div class="app-title">
+                        <div class="app-icon-small">📡</div>
+                        <span>Radio Decrypt</span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-icon" title="Scan">📡</button>
                     </div>
                 </div>
-                <div class="window-content">
-                    <div class="tabs">
-                        <div class="tab active" data-tab="radio-search">Search</div>
-                        <div class="tab" data-tab="radio-results">Results</div>
+
+                <!-- Tab Navigation -->
+                <div class="tab-nav">
+                    <div class="tab-item active" data-tab="radio-search">
+                        <div class="tab-icon">📡</div>
+                        <span>Decrypt</span>
+                    </div>
+                    <div class="tab-item" data-tab="radio-results">
+                        <div class="tab-icon">📊</div>
+                        <span>Signals</span>
+                    </div>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="app-content">
+                    <!-- Radio Search Tab -->
+                    <div class="tab-content active" id="radio-search-tab">
+                        <div class="search-section">
+                            <div class="search-header">
+                                <h2>Radio Decryption</h2>
+                                <p>Decrypt and analyze radio frequencies</p>
+                            </div>
+                            
+                            <div class="input-card">
+                                <div class="input-group">
+                                    <label for="frequency-input">Frequency (MHz)</label>
+                                    <div class="input-wrapper">
+                                        <input type="text" id="frequency-input" placeholder="123.5" maxlength="10">
+                                        <div class="input-icon">📡</div>
+                                    </div>
+                                </div>
+                                <button id="decrypt-radio" class="primary-button">
+                                    <span class="button-icon">🔓</span>
+                                    Decrypt Signal
+                                </button>
+                            </div>
+
+                            <div class="frequency-scanner">
+                                <h3>Frequency Scanner</h3>
+                                <div class="scanner-display">
+                                    <div class="scanner-line"></div>
+                                    <div class="frequency-readout">---.- MHz</div>
+                                </div>
+                                <button class="secondary-button">
+                                    <span class="button-icon">🔍</span>
+                                    Auto Scan
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="tab-content">
-                        <!-- Radio Search Tab -->
-                        <div class="tab-pane active" id="radio-search-tab">
-                            <div class="input-group">
-                                <label for="frequency-input">Enter Radio Frequency:</label>
-                                <input type="text" id="frequency-input" placeholder="123.5" maxlength="10">
-                            </div>
-                            <button id="decrypt-radio" class="action-button">DECRYPT SIGNAL</button>
-                        </div>
-
-                        <!-- Radio Results Tab -->
-                        <div class="tab-pane" id="radio-results-tab">
-                            <div class="radio-info" id="radio-info">
-                                <div class="no-results">No decryption results yet.</div>
+                    <!-- Radio Results Tab -->
+                    <div class="tab-content" id="radio-results-tab">
+                        <div class="results-section">
+                            <div id="radio-info">
+                                <div class="empty-state">
+                                    <div class="empty-icon">📡</div>
+                                    <h3>No Signals</h3>
+                                    <p>Decrypt a frequency to see signal data here</p>
+                                </div>
                             </div>
                         </div>
                     </div>
