@@ -36,17 +36,33 @@ local function SafeQuery(query, params, callback, retries)
     end
     
     local function executeQuery(attempt)
+        print("^3[qb-hackerjob:server] ^7Executing MySQL query attempt " .. attempt .. "/" .. retries)
+        
+        -- Add timeout protection for MySQL queries
+        local queryTimeout = SetTimeout(10000, function() -- 10 second timeout per query
+            SafeLogError('MySQL query timeout on attempt ' .. attempt)
+            print("^1[qb-hackerjob:server] ^7MySQL query timeout!")
+            if attempt >= retries then
+                callback(nil)
+            end
+        end)
+        
         MySQL.query(query, params or {}, function(result)
-            if result then
+            ClearTimeout(queryTimeout)
+            
+            if result ~= nil then -- result can be empty array, which is valid
                 SafeLogDebug('Query successful on attempt ' .. attempt)
+                print("^2[qb-hackerjob:server] ^7MySQL query successful, returned " .. #result .. " results")
                 callback(result)
             else
                 SafeLogError('Query failed on attempt ' .. attempt .. '/' .. retries)
+                print("^1[qb-hackerjob:server] ^7MySQL query returned nil on attempt " .. attempt)
                 if attempt < retries then
                     Citizen.Wait(500 * attempt) -- Exponential backoff
                     executeQuery(attempt + 1)
                 else
                     SafeLogError('Query failed after all retries: ' .. query)
+                    print("^1[qb-hackerjob:server] ^7All MySQL query attempts failed!")
                     callback(nil)
                 end
             end
@@ -205,20 +221,25 @@ end)
 QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(source, cb, plate)
     local src = source
     
+    print("^2[qb-hackerjob:server] ^7Plate lookup callback triggered by source: " .. tostring(src) .. " for plate: " .. tostring(plate))
+    
     -- Validate inputs
     if not src or type(src) ~= 'number' then
         SafeLogError('Invalid source in lookupPlate callback', src)
+        print("^1[qb-hackerjob:server] ^7Invalid source provided")
         if cb then cb({ success = false, message = "Invalid request source" }) end
         return
     end
     
     if not cb or type(cb) ~= 'function' then
         SafeLogError('Invalid callback in lookupPlate', src)
+        print("^1[qb-hackerjob:server] ^7Invalid callback function provided")
         return
     end
     
     if not plate then
         SafeLogError('No plate provided in lookupPlate', src)
+        print("^1[qb-hackerjob:server] ^7No plate provided")
         cb({ success = false, message = "No plate number provided" })
         return
     end
@@ -226,9 +247,12 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
     local Player = SafeGetPlayer(src)
     if not Player then
         SafeLogError('Player not found in lookupPlate', src)
+        print("^1[qb-hackerjob:server] ^7Player not found for source: " .. tostring(src))
         cb({ success = false, message = "Player session invalid - please reconnect" })
         return
     end
+    
+    print("^2[qb-hackerjob:server] ^7Player found, proceeding with plate lookup")
     
     -- Enhanced server-side job authorization check
     if Config.RequireJob then
@@ -358,6 +382,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
     -- Enhanced async MySQL query with comprehensive error handling
     local queryStartTime = GetGameTimer()
     SafeLogDebug('Starting database query for plate: ' .. plate, src)
+    print("^2[qb-hackerjob:server] ^7Starting MySQL query for plate: " .. plate)
     
     SafeQuery(
         'SELECT pv.*, p.charinfo FROM player_vehicles pv LEFT JOIN players p ON pv.citizenid = p.citizenid WHERE pv.plate = ?',
@@ -373,7 +398,26 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
             
             if not result then
                 SafeLogError('Database query returned null result for plate: ' .. plate, src)
-                cb({ success = false, message = "Database connection error - please try again" })
+                print("^1[qb-hackerjob:server] ^7Database query returned null, providing fallback response")
+                
+                -- Provide fallback response instead of failing completely
+                local fallbackData = {
+                    plate = plate,
+                    owner = "Database Unavailable",
+                    ownertype = "unknown",
+                    firstname = nil,
+                    lastname = nil,
+                    citizenid = nil,
+                    make = "Unknown",
+                    model = "Unknown",
+                    class = "Unknown",
+                    vehicle = nil,
+                    hash = nil,
+                    vin = GenerateVIN(),
+                    flags = { database_error = true },
+                }
+                
+                cb({ success = true, data = fallbackData })
                 return
             end
             

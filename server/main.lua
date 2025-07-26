@@ -521,6 +521,16 @@ Citizen.CreateThread(function()
     end
     
     LogInfo('QB-HackerJob server initialization completed successfully')
+    
+    -- Test database connection
+    LogInfo('Testing database connection...')
+    MySQL.query('SELECT 1 as test', {}, function(result)
+        if result and #result > 0 then
+            LogInfo('Database connection test: SUCCESS')
+        else
+            LogError('ERROR', 'Database connection test: FAILED - Check oxmysql and database credentials')
+        end
+    end)
 end)
 
 -- Health monitoring thread
@@ -570,6 +580,45 @@ AddEventHandler('onResourceStop', function(resourceName)
     
     LogInfo('QB-HackerJob shutdown completed')
 end)
+
+-- Admin command to test plate lookup system
+QBCore.Commands.Add('testplate', 'Test plate lookup system (Admin Only)', {
+    {name = 'plate', help = 'Plate number to test'}
+}, true, function(source, args)
+    local src = source
+    
+    if not src or type(src) ~= 'number' then return end
+    
+    local AdminPlayer = SafeGetPlayer(src)
+    if not AdminPlayer then return end
+    
+    local hasPermSuccess, hasPermission = SafeExecute(function()
+        return QBCore.Functions.HasPermission(src, 'admin')
+    end, 'qbcore')
+    
+    if not hasPermSuccess or not hasPermission then
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    local testPlate = args[1] or "TEST123"
+    
+    print("^2[qb-hackerjob] ^7Admin testing plate lookup for: " .. testPlate)
+    TriggerClientEvent('QBCore:Notify', src, 'Testing plate lookup for: ' .. testPlate, 'primary')
+    
+    -- Test the callback directly
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:lookupPlate', function(result)
+        if result and result.success then
+            print("^2[qb-hackerjob] ^7Plate lookup test SUCCESS")
+            TriggerClientEvent('QBCore:Notify', src, 'Plate lookup test: SUCCESS', 'success')
+        else
+            print("^1[qb-hackerjob] ^7Plate lookup test FAILED: " .. tostring(result and result.message or "Unknown error"))
+            TriggerClientEvent('QBCore:Notify', src, 'Plate lookup test: FAILED - ' .. tostring(result and result.message or "Unknown error"), 'error')
+        end
+    end, testPlate, src)
+end, 'admin')
 
 -- Admin command to check system health
 QBCore.Commands.Add('hackerstatus', 'Check hacker job system status (Admin Only)', {}, true, function(source, args)

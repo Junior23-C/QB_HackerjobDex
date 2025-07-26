@@ -130,10 +130,26 @@ end
 
 -- Function to perform the actual lookup query to the server
 function PerformLookupQuery(plate)
+    print("^2[qb-hackerjob] ^7PerformLookupQuery called with plate: " .. tostring(plate))
+    
+    -- Add timeout protection to prevent getting stuck
+    local timeoutTimer = SetTimeout(15000, function() -- 15 second timeout
+        if isLookingUp then
+            print("^1[qb-hackerjob] ^7Plate lookup timeout for plate: " .. tostring(plate))
+            isLookingUp = false
+            QBCore.Functions.Notify("Database lookup timed out - please try again", "error")
+        end
+    end)
+    
+    print("^2[qb-hackerjob] ^7Triggering server callback for plate: " .. tostring(plate))
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:lookupPlate', function(result)
+        print("^2[qb-hackerjob] ^7Received callback response for plate: " .. tostring(plate))
+        
+        -- Clear the timeout since we got a response
+        ClearTimeout(timeoutTimer)
         isLookingUp = false
         
-        if result.success then
+        if result and result.success then
             local vehicleData = result.data
             
             -- ### DEBUGGING: Log the data received from the server ###
@@ -186,10 +202,11 @@ function PerformLookupQuery(plate)
             return vehicleData
         else
             -- Handle error
-            QBCore.Functions.Notify(result.message or Lang:t('error.vehicle_not_found'), "error")
+            print("^1[qb-hackerjob] ^7Plate lookup failed for plate: " .. tostring(plate) .. " - " .. tostring(result and result.message or "Unknown error"))
+            QBCore.Functions.Notify(result and result.message or Lang:t('error.vehicle_not_found'), "error")
             
             -- Log failure
-            TriggerServerEvent('qb-hackerjob:server:logActivity', 'plateLookup', plate, false, result.message or 'Vehicle not found')
+            TriggerServerEvent('qb-hackerjob:server:logActivity', 'plateLookup', plate, false, result and result.message or 'Vehicle not found')
             
             return nil
         end
