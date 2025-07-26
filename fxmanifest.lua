@@ -10,12 +10,16 @@ shared_scripts {
     'locales/en.lua',
     'config/config.lua',
     'config/vehicles.lua',
-    'config/production.lua'
+    'config/production.lua',
+    'config/economy.lua',
+    'config/minigames.lua',
+    'config/contracts.lua'
 }
 
 client_scripts {
     'client/main.lua',
     'client/laptop.lua',
+    'client/minigames.lua',
     'client/plate_lookup.lua',
     'client/phone_tracker.lua',
     'client/radio_decryption.lua',
@@ -27,6 +31,9 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
+    'server/economy.lua',
+    'server/security.lua',
+    'server/contracts.lua',
     'server/plate_lookup.lua',
     'server/phone_tracker.lua',
     'server/radio_decryption.lua',

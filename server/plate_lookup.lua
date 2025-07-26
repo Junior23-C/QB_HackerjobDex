@@ -251,7 +251,7 @@ end)
 -- Note: XP commands are now handled in main.lua using the new metadata system
 
 -- Enhanced main callback for plate lookup with comprehensive error handling
-QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(source, cb, plate)
+QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(source, cb, plate, performanceData)
     local src = source
     
     print("^2[qb-hackerjob:server] ^7Plate lookup callback triggered by source: " .. tostring(src) .. " for plate: " .. tostring(plate))
@@ -359,6 +359,40 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
     
     plate = validatedPlate
     SafeLogDebug('Plate validated successfully: ' .. plate, src)
+
+    -- Process payment for plate lookup service
+    if Config.Economy and Config.Economy.enabled then
+        -- Determine target data for pricing
+        local targetData = {
+            target = plate,
+            isEmergency = IsEmergencyPlate(plate),
+            isStolen = false, -- Will be determined after lookup
+            isVIP = false     -- Will be determined after lookup
+        }
+        
+        -- Process payment using economy system
+        local paymentProcessed = false
+        local paymentError = nil
+        
+        exports['qb-hackerjob']:ProcessServicePayment(src, 'plateLookup', targetData, 
+            function(price)
+                SafeLogDebug('Payment processed successfully: $' .. price .. ' for plate lookup', src)
+                paymentProcessed = true
+            end,
+            function(error)
+                SafeLogError('Payment failed for plate lookup: ' .. error, src)
+                paymentError = error
+            end
+        )
+        
+        -- Wait a moment for payment processing
+        Citizen.Wait(100)
+        
+        if not paymentProcessed and paymentError then
+            cb({ success = false, message = "Payment required: " .. paymentError })
+            return
+        end
+    end
 
     -- Safe cache check with error handling
     local cacheCheckSuccess, cacheResult = pcall(function()
@@ -659,6 +693,17 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
                 
                 if not xpSuccess then
                     SafeLogError('Failed to award XP for plate lookup', src)
+                end
+            end
+            
+            -- Update contract progress if contracts are enabled
+            if lookupSuccessful and Config.Contracts and Config.Contracts.enabled then
+                local contractSuccess = pcall(function()
+                    exports['qb-hackerjob']:UpdateContractProgress(Player.PlayerData.citizenid, 'plateLookup')
+                end)
+                
+                if not contractSuccess then
+                    SafeLogError('Failed to update contract progress for plate lookup', src)
                 end
             end
         end,

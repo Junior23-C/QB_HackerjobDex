@@ -132,6 +132,90 @@ end
 function PerformLookupQuery(plate)
     print("^2[qb-hackerjob] ^7PerformLookupQuery called with plate: " .. tostring(plate))
     
+    -- First, get the service price to show to the user
+    if Config.Economy and Config.Economy.enabled then
+        local targetData = {
+            target = plate,
+            isEmergency = false, -- Will be determined by server
+            isStolen = false,
+            isVIP = false
+        }
+        
+        QBCore.Functions.TriggerCallback('qb-hackerjob:server:getServicePrice', function(priceResult)
+            if priceResult.success then
+                local price = priceResult.price
+                local marketMultiplier = priceResult.marketMultiplier or 1.0
+                
+                -- Show pricing info and get confirmation
+                local marketText = ""
+                if marketMultiplier > 1.1 then
+                    marketText = " (High Demand: +" .. math.floor((marketMultiplier - 1) * 100) .. "%)"
+                elseif marketMultiplier < 0.9 then
+                    marketText = " (Low Demand: " .. math.floor((marketMultiplier - 1) * 100) .. "%)"
+                end
+                
+                QBCore.Functions.Notify(string.format("Plate Lookup Service: $%d%s", price, marketText), "primary")
+                
+                -- Get user confirmation for payment
+                local confirmDialog = exports['qb-input']:ShowInput({
+                    header = "Confirm Plate Lookup",
+                    submitText = "Pay & Lookup",
+                    inputs = {
+                        {
+                            text = string.format("Service Cost: $%d%s", price, marketText),
+                            name = "confirmation",
+                            type = "text",
+                            isRequired = false,
+                            default = "Type 'confirm' to proceed"
+                        }
+                    }
+                })
+                
+                if confirmDialog and confirmDialog.confirmation and confirmDialog.confirmation:lower() == "confirm" then
+                    -- User confirmed, proceed with paid lookup
+                    ActuallyPerformLookup(plate)
+                else
+                    -- User cancelled
+                    isLookingUp = false
+                    QBCore.Functions.Notify("Plate lookup cancelled", "error")
+                end
+            else
+                -- Payment validation failed, show error
+                isLookingUp = false
+                QBCore.Functions.Notify("Service unavailable: " .. (priceResult.message or "Unknown error"), "error")
+            end
+        end, 'plateLookup', targetData)
+    else
+        -- Economy disabled, proceed with free lookup
+        ActuallyPerformLookup(plate)
+    end
+end
+
+-- Function to actually perform the lookup after payment confirmation
+function ActuallyPerformLookup(plate)
+    -- Start the minigame for plate lookup
+    if Config.MiniGames and Config.MiniGames.enabled then
+        QBCore.Functions.Notify("Starting database access challenge...", "primary")
+        
+        exports['qb-hackerjob']:StartMiniGame('plateLookup', function(success, score, tier)
+            if success then
+                -- Minigame completed successfully, proceed with lookup
+                print("^2[qb-hackerjob] ^7Minigame completed with score: " .. score .. " (" .. tier .. ")")
+                PerformActualLookupQuery(plate, score, tier)
+            else
+                -- Minigame failed
+                isLookingUp = false
+                QBCore.Functions.Notify("Database access failed - hacking attempt unsuccessful", "error")
+            end
+        end)
+    else
+        -- Minigames disabled, proceed directly
+        PerformActualLookupQuery(plate, 0.6, "average")
+    end
+end
+
+-- Function to perform the actual server query after minigame completion
+function PerformActualLookupQuery(plate, performance, tier)
     -- Add timeout protection to prevent getting stuck
     local timeoutTimer = SetTimeout(15000, function() -- 15 second timeout
         if isLookingUp then
@@ -142,6 +226,14 @@ function PerformLookupQuery(plate)
     end)
     
     print("^2[qb-hackerjob] ^7Triggering server callback for plate: " .. tostring(plate))
+    
+    -- Pass performance data to server for reward calculation
+    local performanceData = {
+        score = performance,
+        tier = tier,
+        timestamp = GetGameTimer()
+    }
+    
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:lookupPlate', function(result)
         print("^2[qb-hackerjob] ^7Received callback response for plate: " .. tostring(plate))
         
@@ -210,7 +302,7 @@ function PerformLookupQuery(plate)
             
             return nil
         end
-    end, plate)
+    end, plate, performanceData)
 end
 
 -- Function to display nearby vehicle list in the laptop UI

@@ -16,6 +16,40 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getPlayerByPhone', function
         return
     end
     
+    -- Process payment for phone tracking service
+    if Config.Economy and Config.Economy.enabled then
+        -- Determine target data for pricing
+        local targetData = {
+            target = phone,
+            isOnline = true, -- Will be determined after lookup
+            isPolice = false, -- Will be determined after lookup
+            distance = 0 -- Will be calculated after lookup
+        }
+        
+        -- Process payment using economy system
+        local paymentProcessed = false
+        local paymentError = nil
+        
+        exports['qb-hackerjob']:ProcessServicePayment(src, 'phoneTracking', targetData, 
+            function(price)
+                print("^2[Phone Tracker] ^7Payment processed successfully: $" .. price)
+                paymentProcessed = true
+            end,
+            function(error)
+                print("^1[Phone Tracker] ^7Payment failed: " .. error)
+                paymentError = error
+            end
+        )
+        
+        -- Wait a moment for payment processing
+        Citizen.Wait(100)
+        
+        if not paymentProcessed and paymentError then
+            cb({ success = false, message = "Payment required: " .. paymentError })
+            return
+        end
+    end
+    
     -- In a real implementation, this would search the database for the phone number
     -- and return the player data if found
     
