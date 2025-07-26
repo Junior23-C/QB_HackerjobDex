@@ -1585,8 +1585,11 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getDashboardStats', functio
     -- Get today's earnings (this would need to be tracked in real implementation)
     local todayEarnings = 0 -- Placeholder - should query from logs
     
-    -- Get active contracts
-    local playerContracts = exports['qb-hackerjob']:GetPlayerContracts(citizenid)
+    -- Get active contracts (with error handling)
+    local playerContracts = {}
+    pcall(function()
+        playerContracts = exports['qb-hackerjob']:GetPlayerContracts(citizenid) or {}
+    end)
     local activeContracts = #playerContracts
     
     -- Calculate success rate (placeholder)

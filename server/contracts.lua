@@ -64,6 +64,56 @@ local function CheckExpiredContracts()
     end
 end
 
+-- Update contract progress when player completes operations
+function UpdateContractProgress(citizenid, operationType)
+    if not ContractSystem.playerContracts[citizenid] then
+        return
+    end
+    
+    local contracts = ContractSystem.playerContracts[citizenid]
+    
+    for _, contract in ipairs(contracts) do
+        if contract.status == "active" then
+            -- Check if this operation type is needed for any objectives
+            for _, objective in ipairs(contract.objectives) do
+                if objective.type == operationType then
+                    -- Initialize progress if not exists
+                    if not contract.progress[objective.type] then
+                        contract.progress[objective.type] = 0
+                    end
+                    
+                    -- Increment progress
+                    contract.progress[objective.type] = contract.progress[objective.type] + 1
+                    
+                    print(string.format("^2[Contracts] ^7Progress update for %s: %s %d/%d", 
+                        citizenid, objective.type, contract.progress[objective.type], objective.count))
+                    
+                    -- Check if objective is complete
+                    if contract.progress[objective.type] >= objective.count then
+                        print(string.format("^2[Contracts] ^7Objective completed: %s", objective.description))
+                    end
+                    
+                    -- Check if entire contract is complete
+                    local allComplete = true
+                    for _, obj in ipairs(contract.objectives) do
+                        local progress = contract.progress[obj.type] or 0
+                        if progress < obj.count then
+                            allComplete = false
+                            break
+                        end
+                    end
+                    
+                    if allComplete then
+                        CompleteContract(citizenid, contract)
+                    end
+                    
+                    break -- Only update one contract per operation
+                end
+            end
+        end
+    end
+end
+
 -- Initialize contract system
 local function InitializeContracts()
     print("^2[Contracts] ^7System initialized")
@@ -488,6 +538,9 @@ end, 'admin')
 exports('UpdateContractProgress', UpdateContractProgress)
 exports('GetPlayerContracts', function(citizenid) 
     return ContractSystem.playerContracts[citizenid] or {} 
+end)
+exports('GetActiveContracts', function()
+    return ContractSystem.activeContracts or {}
 end)
 
 -- Initialize system when server starts
