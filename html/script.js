@@ -488,9 +488,10 @@ function setupPhoneEventHandlers() {
             }
         });
 
-        // Escape key to close phone
+        // Escape and Backspace keys to close phone
         $(document).on('keydown', function(e) {
-            if (e.key === 'Escape' && laptopOpen) {
+            if ((e.key === 'Escape' || e.key === 'Backspace') && laptopOpen) {
+                e.preventDefault();
                 closePhone();
             }
         });
@@ -711,7 +712,7 @@ function openPhone(data) {
             currentLevelName = "Script Kiddie";
         }
 
-        phoneOpen = true;
+        laptopOpen = true;
         phoneLastUsed = Date.now();
 
         // Safe UI setup

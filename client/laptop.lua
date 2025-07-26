@@ -278,6 +278,46 @@ RegisterNUICallback('closePhone', function(_, cb)
     cb({success = true})
 end)
 
+RegisterNUICallback('replaceBattery', function(_, cb)
+    print("^2[qb-hackerjob:laptop] ^7Replace battery NUI callback triggered")
+    
+    if not Config.Battery.enabled then
+        cb({success = false, message = "Battery system disabled"})
+        return
+    end
+    
+    -- Check if player has battery item
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
+        if hasItem then
+            -- Trigger the replace battery event
+            TriggerEvent('qb-hackerjob:client:replaceBattery')
+            cb({success = true, message = "Battery replacement started"})
+        else
+            cb({success = false, message = "You don't have a replacement battery"})
+        end
+    end, Config.Battery.batteryItemName)
+end)
+
+RegisterNUICallback('toggleCharger', function(_, cb)
+    print("^2[qb-hackerjob:laptop] ^7Toggle charger NUI callback triggered")
+    
+    if not Config.Battery.enabled then
+        cb({success = false, message = "Battery system disabled"})
+        return
+    end
+    
+    -- Check if player has charger item
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
+        if hasItem then
+            -- Trigger the charger toggle event
+            TriggerEvent('qb-hackerjob:client:toggleCharger')
+            cb({success = true, message = "Charger toggled"})
+        else
+            cb({success = false, message = "You don't have a laptop charger"})
+        end
+    end, Config.Battery.chargerItemName)
+end)
+
 RegisterNUICallback('performPlateLookup', function(data, cb)
     if not data.plate then
         cb({success = false, message = "No plate provided"})
