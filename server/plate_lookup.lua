@@ -30,6 +30,18 @@ local function SafeLogDebug(message, context)
     print('^3[qb-hackerjob:plate-lookup:DEBUG] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
 end
 
+-- Update query performance stats
+local function updateQueryStats(queryTime)
+    performanceStats.totalQueries = performanceStats.totalQueries + 1
+    if queryTime > 50 then
+        performanceStats.slowQueries = performanceStats.slowQueries + 1
+    end
+    
+    -- Calculate rolling average
+    performanceStats.averageQueryTime = 
+        (performanceStats.averageQueryTime * (performanceStats.totalQueries - 1) + queryTime) / performanceStats.totalQueries
+end
+
 -- Safe database query wrapper
 local function SafeQuery(query, params, callback, retries)
     retries = retries or 3
@@ -48,32 +60,43 @@ local function SafeQuery(query, params, callback, retries)
     local function executeQuery(attempt)
         print("^3[qb-hackerjob:server] ^7Executing MySQL query attempt " .. attempt .. "/" .. retries)
         
+        local queryComplete = false
+        
         -- Add timeout protection for MySQL queries
         local queryTimeout = SetTimeout(10000, function() -- 10 second timeout per query
-            SafeLogError('MySQL query timeout on attempt ' .. attempt)
-            print("^1[qb-hackerjob:server] ^7MySQL query timeout!")
-            if attempt >= retries then
-                callback(nil)
-            end
-        end)
-        
-        MySQL.query(query, params or {}, function(result)
-            ClearTimeout(queryTimeout)
-            
-            if result ~= nil then -- result can be empty array, which is valid
-                SafeLogDebug('Query successful on attempt ' .. attempt)
-                print("^2[qb-hackerjob:server] ^7MySQL query successful, returned " .. #result .. " results")
-                callback(result)
-            else
-                SafeLogError('Query failed on attempt ' .. attempt .. '/' .. retries)
-                print("^1[qb-hackerjob:server] ^7MySQL query returned nil on attempt " .. attempt)
+            if not queryComplete then
+                queryComplete = true
+                SafeLogError('MySQL query timeout on attempt ' .. attempt)
+                print("^1[qb-hackerjob:server] ^7MySQL query timeout!")
                 if attempt < retries then
                     Citizen.Wait(500 * attempt) -- Exponential backoff
                     executeQuery(attempt + 1)
                 else
-                    SafeLogError('Query failed after all retries: ' .. query)
-                    print("^1[qb-hackerjob:server] ^7All MySQL query attempts failed!")
                     callback(nil)
+                end
+            end
+        end)
+        
+        MySQL.query(query, params or {}, function(result)
+            if not queryComplete then
+                queryComplete = true
+                ClearTimeout(queryTimeout)
+                
+                if result ~= nil then -- result can be empty array, which is valid
+                    SafeLogDebug('Query successful on attempt ' .. attempt)
+                    print("^2[qb-hackerjob:server] ^7MySQL query successful, returned " .. #result .. " results")
+                    callback(result)
+                else
+                    SafeLogError('Query failed on attempt ' .. attempt .. '/' .. retries)
+                    print("^1[qb-hackerjob:server] ^7MySQL query returned nil on attempt " .. attempt)
+                    if attempt < retries then
+                        Citizen.Wait(500 * attempt) -- Exponential backoff
+                        executeQuery(attempt + 1)
+                    else
+                        SafeLogError('Query failed after all retries: ' .. query)
+                        print("^1[qb-hackerjob:server] ^7All MySQL query attempts failed!")
+                        callback(nil)
+                    end
                 end
             end
         end)
@@ -920,17 +943,6 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:isVehicleFlagged', function
     )
 end)
 
--- Update query performance stats
-local function updateQueryStats(queryTime)
-    performanceStats.totalQueries = performanceStats.totalQueries + 1
-    if queryTime > 50 then
-        performanceStats.slowQueries = performanceStats.slowQueries + 1
-    end
-    
-    -- Calculate rolling average
-    performanceStats.averageQueryTime = 
-        (performanceStats.averageQueryTime * (performanceStats.totalQueries - 1) + queryTime) / performanceStats.totalQueries
-end
 
 -- Performance monitoring command (Admin only)
 QBCore.Commands.Add('hackerperf', 'Show hacker job performance statistics (Admin Only)', {}, true, function(source, args)
