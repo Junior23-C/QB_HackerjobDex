@@ -14,20 +14,12 @@ shared_scripts {
 }
 
 client_scripts {
-    '@PolyZone/client.lua',
-    '@PolyZone/BoxZone.lua',
-    '@PolyZone/ComboZone.lua',
-    'client/main.lua',
-    'client/plate_lookup.lua',
-    'client/laptop.lua',
-    'client/phone_tracker.lua',
-    'client/radio_decryption.lua',
-    'client/vehicle_tracker.lua',
-    'client/vehicle_control.lua',
-    'client/phone_hacking.lua'
+    'client/test.lua',
+    'client/simple.lua'
 }
 
 server_scripts {
+    'server/test.lua',
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
     'server/plate_lookup.lua',
