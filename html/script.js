@@ -629,8 +629,9 @@ function switchBottomNav(tabName) {
                 loadContracts();
                 break;
             case 'tools':
-                // Tools is handled by the existing app system
-                goToHome();
+                // Show the home screen with hacking tools
+                $('#home-screen').removeClass('hidden');
+                activeAppScreen = null;
                 break;
             case 'market':
                 $('#market-content').removeClass('hidden');

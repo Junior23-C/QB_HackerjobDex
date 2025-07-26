@@ -9,6 +9,61 @@ local ContractSystem = {
     contractIdCounter = 1      -- Unique ID counter
 }
 
+-- Refresh available contracts
+local function RefreshContracts()
+    print("^2[Contracts] ^7Refreshing available contracts")
+    
+    -- Clear expired contracts
+    local currentTime = os.time()
+    for i = #ContractSystem.activeContracts, 1, -1 do
+        local contract = ContractSystem.activeContracts[i]
+        if contract.expiresAt and contract.expiresAt < currentTime then
+            table.remove(ContractSystem.activeContracts, i)
+            print("^3[Contracts] ^7Removed expired contract: " .. contract.title)
+        end
+    end
+    
+    -- Generate new contracts to maintain target count
+    local targetContracts = Config.Contracts.maxActiveContracts or 6
+    local currentCount = #ContractSystem.activeContracts
+    local contractsToGenerate = targetContracts - currentCount
+    
+    for i = 1, contractsToGenerate do
+        local newContract = GenerateRandomContract()
+        if newContract then
+            table.insert(ContractSystem.activeContracts, newContract)
+            print("^2[Contracts] ^7Generated new contract: " .. newContract.title)
+        end
+    end
+    
+    ContractSystem.lastRefresh = currentTime
+    print("^2[Contracts] ^7Refresh complete. Active contracts: " .. #ContractSystem.activeContracts)
+end
+
+-- Check for expired player contracts
+local function CheckExpiredContracts()
+    local currentTime = os.time()
+    
+    for citizenid, contracts in pairs(ContractSystem.playerContracts) do
+        for i = #contracts, 1, -1 do
+            local contract = contracts[i]
+            if contract.expiresAt and contract.expiresAt < currentTime then
+                table.remove(contracts, i)
+                LogContractCompletion(citizenid, contract, "expired")
+                
+                -- Notify player if online
+                local Player = QBCore.Functions.GetPlayerByCitizenId(citizenid)
+                if Player then
+                    TriggerClientEvent('QBCore:Notify', Player.PlayerData.source,
+                        'Contract expired: ' .. contract.title, 'error')
+                end
+                
+                print("^3[Contracts] ^7Expired contract for " .. citizenid .. ": " .. contract.title)
+            end
+        end
+    end
+end
+
 -- Initialize contract system
 local function InitializeContracts()
     print("^2[Contracts] ^7System initialized")
