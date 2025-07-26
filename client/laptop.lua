@@ -6,6 +6,7 @@ local isCharging = false
 local batteryDrainThread = nil
 local chargingThread = nil
 local chargingActive = false
+local batteryOperationInProgress = false
 
 -- Initialize battery level from saved data
 Citizen.CreateThread(function()
@@ -320,23 +321,19 @@ RegisterNUICallback('replaceBattery', function(_, cb)
         return
     end
     
+    -- Prevent multiple simultaneous operations
+    if batteryOperationInProgress then
+        print("^3[qb-hackerjob:laptop] ^7Battery operation already in progress, ignoring request")
+        cb({success = false, message = "Battery operation already in progress"})
+        return
+    end
+    
+    batteryOperationInProgress = true
+    
     -- Check if player has battery item
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
         if hasItem then
-            -- Set battery to 100% immediately (new battery)
-            batteryLevel = 100
-            SetResourceKvpFloat('hackerjob_battery', batteryLevel)
-            
-            -- Update UI immediately
-            if laptopOpen then
-                SendNUIMessage({
-                    action = "updateBattery",
-                    batteryLevel = batteryLevel,
-                    charging = isCharging
-                })
-            end
-            
-            -- Trigger the replace battery event for animation
+            -- Trigger the replace battery event for animation first
             TriggerEvent('qb-hackerjob:client:replaceBattery')
             
             cb({
@@ -348,6 +345,9 @@ RegisterNUICallback('replaceBattery', function(_, cb)
         else
             cb({success = false, message = "You don't have a replacement battery"})
         end
+        
+        -- Reset operation flag
+        batteryOperationInProgress = false
     end, Config.Battery.batteryItemName)
 end)
 
@@ -358,6 +358,15 @@ RegisterNUICallback('toggleCharger', function(_, cb)
         cb({success = false, message = "Battery system disabled"})
         return
     end
+    
+    -- Prevent multiple simultaneous operations
+    if batteryOperationInProgress then
+        print("^3[qb-hackerjob:laptop] ^7Battery operation already in progress, ignoring charger toggle")
+        cb({success = false, message = "Battery operation already in progress"})
+        return
+    end
+    
+    batteryOperationInProgress = true
     
     -- Check if player has charger item
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
@@ -457,6 +466,9 @@ RegisterNUICallback('toggleCharger', function(_, cb)
         else
             cb({success = false, message = "You don't have a laptop charger"})
         end
+        
+        -- Reset operation flag
+        batteryOperationInProgress = false
     end, Config.Battery.chargerItemName)
 end)
 

@@ -929,18 +929,25 @@ function createBatteryIndicator() {
         e.stopPropagation();
         console.log('Replace battery clicked - delegated event');
 
-        // Display loading state
         const button = $(this);
+        
+        // Prevent multiple clicks
+        if (button.hasClass('disabled') || button.hasClass('processing')) {
+            console.log('Button already disabled - ignoring click');
+            return;
+        }
+
+        // Display loading state
         const originalText = button.text();
         button.text('REPLACING...');
-        button.addClass('disabled');
+        button.addClass('disabled').addClass('processing');
 
         $.post('https://qb-hackerjob/replaceBattery', JSON.stringify({}), function(response) {
             console.log('Replace battery response:', response);
 
             // Reset button
             button.text(originalText);
-            button.removeClass('disabled');
+            button.removeClass('disabled').removeClass('processing');
 
             if (response.success) {
                 updateBatteryDisplay(response.batteryLevel, response.charging);
@@ -958,7 +965,7 @@ function createBatteryIndicator() {
 
             // Reset button
             button.text(originalText);
-            button.removeClass('disabled');
+            button.removeClass('disabled').removeClass('processing');
         });
     });
 
@@ -966,18 +973,25 @@ function createBatteryIndicator() {
         e.stopPropagation();
         console.log('Toggle charger clicked - delegated event');
 
-        // Display loading state
         const button = $(this);
+        
+        // Prevent multiple clicks
+        if (button.hasClass('disabled') || button.hasClass('processing')) {
+            console.log('Charger button already disabled - ignoring click');
+            return;
+        }
+
+        // Display loading state
         const originalText = button.text();
         button.text('PROCESSING...');
-        button.addClass('disabled');
+        button.addClass('disabled').addClass('processing');
 
         $.post('https://qb-hackerjob/toggleCharger', JSON.stringify({}), function(response) {
             console.log('Toggle charger response:', response);
 
             // Reset button
             button.text(originalText);
-            button.removeClass('disabled');
+            button.removeClass('disabled').removeClass('processing');
 
             if (response.success) {
                 updateBatteryDisplay(response.batteryLevel, response.charging);
@@ -994,7 +1008,7 @@ function createBatteryIndicator() {
 
             // Reset button
             button.text(originalText);
-            button.removeClass('disabled');
+            button.removeClass('disabled').removeClass('processing');
         });
     });
 }

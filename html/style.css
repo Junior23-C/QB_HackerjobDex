@@ -1051,10 +1051,12 @@ body {
     box-shadow: var(--shadow-small);
 }
 
-.battery-action-btn.disabled {
+.battery-action-btn.disabled,
+.battery-action-btn.processing {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+    pointer-events: none;
 }
 
 /* Animations */
