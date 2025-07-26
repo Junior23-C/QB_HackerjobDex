@@ -178,6 +178,7 @@ $(document).ready(function() {
         // Initialize with error handling
         resetUI();
         setupEventHandlers();
+        setupPhoneEventHandlers();
         setupTouchGestures();
         updateClock();
         updateGreeting();
@@ -429,6 +430,150 @@ function setupEventHandlers() {
     }
 }
 
+// Setup phone interface event handlers
+function setupPhoneEventHandlers() {
+    try {
+        // App card clicks
+        $(document).on('click', '.app-card', function() {
+            const appName = $(this).data('app');
+            if (appName) {
+                openApp(appName);
+            }
+        });
+
+        // Back button clicks
+        $(document).on('click', '.back-button', function() {
+            goToHome();
+        });
+
+        // Tab navigation
+        $(document).on('click', '.tab-item', function() {
+            const tabName = $(this).data('tab');
+            if (tabName) {
+                switchTab(tabName);
+            }
+        });
+
+        // Bottom navigation
+        $(document).on('click', '.nav-item', function() {
+            const tabName = $(this).data('tab');
+            if (tabName) {
+                switchBottomNav(tabName);
+            }
+        });
+
+        // Primary buttons
+        $(document).on('click', '#search-plate', function() {
+            const plate = $('#plate-input').val().trim();
+            if (plate) {
+                searchPlate(plate);
+            }
+        });
+
+        $(document).on('click', '#track-phone', function() {
+            const phoneNumber = $('#phone-input').val().trim();
+            if (phoneNumber) {
+                trackPhone(phoneNumber);
+            }
+        });
+
+        $(document).on('click', '#decrypt-radio', function() {
+            const frequency = $('#frequency-input').val().trim();
+            if (frequency) {
+                decryptRadio(frequency);
+            }
+        });
+
+        // Escape key to close phone
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape' && laptopOpen) {
+                closePhone();
+            }
+        });
+
+        safeLogInfo('Phone event handlers setup successfully');
+    } catch (err) {
+        safeLogError('Failed to setup phone event handlers: ' + err.message);
+    }
+}
+
+// Open an app
+function openApp(appName) {
+    try {
+        // Hide home screen
+        $('#home-screen').addClass('hidden');
+        
+        // Show the app screen
+        const appScreenId = appName + '-app';
+        $(`#${appScreenId}`).removeClass('hidden');
+        
+        activeAppScreen = appScreenId;
+        safeLogInfo('Opened app: ' + appName);
+    } catch (err) {
+        safeLogError('Error opening app: ' + err.message);
+    }
+}
+
+// Switch tabs within an app
+function switchTab(tabName) {
+    try {
+        // Find the parent app container
+        const appContainer = $(event.target).closest('.app-screen');
+        
+        // Update tab items
+        appContainer.find('.tab-item').removeClass('active');
+        $(event.target).closest('.tab-item').addClass('active');
+        
+        // Update tab content
+        appContainer.find('.tab-content').removeClass('active');
+        appContainer.find(`#${tabName}-tab`).addClass('active');
+        
+        safeLogInfo('Switched to tab: ' + tabName);
+    } catch (err) {
+        safeLogError('Error switching tab: ' + err.message);
+    }
+}
+
+// Switch bottom navigation
+function switchBottomNav(tabName) {
+    try {
+        // Update nav items
+        $('.nav-item').removeClass('active');
+        $(event.target).closest('.nav-item').addClass('active');
+        
+        // Handle navigation
+        if (tabName === 'home') {
+            goToHome();
+        }
+        
+        safeLogInfo('Switched bottom nav to: ' + tabName);
+    } catch (err) {
+        safeLogError('Error switching bottom nav: ' + err.message);
+    }
+}
+
+// Track phone function placeholder
+function trackPhone(phoneNumber) {
+    try {
+        safeLogInfo('Tracking phone: ' + phoneNumber);
+        // Add your phone tracking logic here
+        showActionOverlay('Tracking device...');
+    } catch (err) {
+        safeLogError('Error tracking phone: ' + err.message);
+    }
+}
+
+// Decrypt radio function placeholder  
+function decryptRadio(frequency) {
+    try {
+        safeLogInfo('Decrypting radio frequency: ' + frequency);
+        // Add your radio decryption logic here
+        showActionOverlay('Decrypting signal...');
+    } catch (err) {
+        safeLogError('Error decrypting radio: ' + err.message);
+    }
+}
+
 // Reset UI state
 function resetUI() {
     laptopOpen = false;
@@ -437,7 +582,7 @@ function resetUI() {
     $('.app-screen').addClass('hidden');
     $('.boot-progress-bar').css('width', '0%');
     $('#home-screen').addClass('hidden');
-    $('#boot-screen').addClass('hidden');
+    $('#boot-screen').removeClass('hidden');
     batteryLevel = 100;
     isCharging = false;
     currentLevel = 1;
@@ -853,6 +998,13 @@ function closePhone() {
         safeLogDebug('Phone already closed');
         return;
     }
+    
+    // Send close notification to client
+    safePost('https://qb-hackerjob/closePhone', {}, function(response) {
+        safeLogDebug('Phone close notification sent successfully');
+    }, function(error) {
+        safeLogError('Failed to notify client of phone close: ' + error.message);
+    });
 
     safeLogInfo('Closing phone');
     
