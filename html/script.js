@@ -495,28 +495,72 @@ function setupPhoneEventHandlers() {
             }
         });
 
+        // Setup phone dragging
+        setupPhoneDragging();
+
         safeLogInfo('Phone event handlers setup successfully');
     } catch (err) {
         safeLogError('Failed to setup phone event handlers: ' + err.message);
     }
 }
 
-// Open an app
-function openApp(appName) {
+// Setup phone dragging functionality
+function setupPhoneDragging() {
     try {
-        // Hide home screen
-        $('#home-screen').addClass('hidden');
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
         
-        // Show the app screen
-        const appScreenId = appName + '-app';
-        $(`#${appScreenId}`).removeClass('hidden');
+        const phoneContainer = $('#phone-container');
         
-        activeAppScreen = appScreenId;
-        safeLogInfo('Opened app: ' + appName);
+        // Mouse events
+        phoneContainer.on('mousedown', function(e) {
+            // Only start dragging if clicking on the phone container itself or status bar
+            if (e.target === this || $(e.target).closest('.status-bar').length > 0) {
+                isDragging = true;
+                const containerRect = this.getBoundingClientRect();
+                dragOffset.x = e.clientX - containerRect.left;
+                dragOffset.y = e.clientY - containerRect.top;
+                $(this).css('cursor', 'grabbing');
+                e.preventDefault();
+            }
+        });
+
+        $(document).on('mousemove', function(e) {
+            if (isDragging) {
+                const phoneContainer = $('#phone-container');
+                const newX = e.clientX - dragOffset.x;
+                const newY = e.clientY - dragOffset.y;
+                
+                // Keep phone within viewport bounds
+                const maxX = window.innerWidth - phoneContainer.outerWidth();
+                const maxY = window.innerHeight - phoneContainer.outerHeight();
+                
+                const boundedX = Math.max(0, Math.min(newX, maxX));
+                const boundedY = Math.max(0, Math.min(newY, maxY));
+                
+                phoneContainer.css({
+                    'left': boundedX + 'px',
+                    'top': boundedY + 'px',
+                    'transform': 'none' // Remove centering transform when dragging
+                });
+                e.preventDefault();
+            }
+        });
+
+        $(document).on('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                $('#phone-container').css('cursor', 'default');
+            }
+        });
+
+        safeLogInfo('Phone dragging setup completed');
     } catch (err) {
-        safeLogError('Error opening app: ' + err.message);
+        safeLogError('Failed to setup phone dragging: ' + err.message);
     }
 }
+
+// Open an app - removed duplicate, using more detailed version below
 
 // Switch tabs within an app
 function switchTab(tabName) {
@@ -564,6 +608,26 @@ function trackPhone(phoneNumber) {
         showActionOverlay('Tracking device...');
     } catch (err) {
         safeLogError('Error tracking phone: ' + err.message);
+    }
+}
+
+// Switch to results tab in plate lookup app
+function switchToResultsTab() {
+    try {
+        const app = $('#plate-lookup-app');
+        if (app.length > 0) {
+            // Switch tab buttons
+            app.find('.tab-item').removeClass('active');
+            app.find('.tab-item[data-tab="results"]').addClass('active');
+            
+            // Switch tab content
+            app.find('.tab-content').removeClass('active');
+            app.find('#results-tab').addClass('active');
+            
+            safeLogDebug('Switched to results tab');
+        }
+    } catch (err) {
+        safeLogError('Error switching to results tab: ' + err.message);
     }
 }
 
@@ -1003,10 +1067,10 @@ function closePhone() {
         return;
     }
     
-    // Send close notification to client
-    safePost('https://qb-hackerjob/closePhone', {}, function(response) {
+    // Send close notification to client  
+    $.post('https://qb-hackerjob/closePhone', JSON.stringify({}), function(response) {
         safeLogDebug('Phone close notification sent successfully');
-    }, function(error) {
+    }).fail(function(error) {
         safeLogError('Failed to notify client of phone close: ' + error.message);
     });
 
@@ -1052,6 +1116,9 @@ function closePhone() {
 // Open an app screen
 function openApp(appName) {
     phoneLastUsed = Date.now();
+    
+    // Hide home screen
+    $('#home-screen').addClass('hidden');
     
     // Close any currently open app
     if (activeAppScreen) {
@@ -1158,7 +1225,7 @@ function searchPlate(plate) {
         return;
     }
     
-    const trimmedPlate = plate.trim();
+    const trimmedPlate = plate.trim().toUpperCase();
     
     try {
         // Show loading animation
@@ -1169,6 +1236,27 @@ function searchPlate(plate) {
         }
         
         vehicleInfoElement.html('<div class="loading-text">Searching database for plate ' + trimmedPlate + '...</div>');
+        
+        // Switch to results tab
+        switchToResultsTab();
+        
+        // Call the client callback
+        $.post('https://qb-hackerjob/performPlateLookup', JSON.stringify({
+            plate: trimmedPlate
+        }), function(response) {
+            safeLogDebug('Plate lookup response received:', response);
+            
+            if (response && response.success) {
+                safeLogInfo('Plate lookup successful for: ' + trimmedPlate);
+                // Results will be updated via the updateVehicleData message
+            } else {
+                safeLogError('Plate lookup failed: ' + (response ? response.message : 'Unknown error'));
+                vehicleInfoElement.html('<div class="error-text">Lookup failed: ' + (response ? response.message : 'Database error') + '</div>');
+            }
+        }).fail(function(error) {
+            safeLogError('Plate lookup request failed: ' + error.message);
+            vehicleInfoElement.html('<div class="error-text">Connection error. Please try again.</div>');
+        });
         
         // Change to results tab
         const resultsTab = $('#plate-lookup-app .tab[data-tab="results"]');

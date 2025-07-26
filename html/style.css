@@ -239,6 +239,7 @@ body {
 
 /* Status Bar */
 .status-bar {
+    cursor: grab;
     height: 44px;
     display: flex;
     align-items: center;
