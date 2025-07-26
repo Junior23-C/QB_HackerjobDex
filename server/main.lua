@@ -655,96 +655,29 @@ AddEventHandler('qb-hackerjob:server:useItem', function()
     end
 end)
 
--- Enhanced job check callback with error handling
+-- Job check callback
 QBCore.Functions.CreateCallback('qb-hackerjob:server:hasHackerJob', function(source, cb)
-    -- Add debug logging to trace callback issues
-    LogDebug('hasHackerJob callback triggered', source)
-    LogDebug('Callback type: ' .. tostring(type(cb)), source)
-    
-    -- Validate inputs with improved callback handling
-    if not source or type(source) ~= 'number' then
-        LogError('ERROR', 'Invalid source in hasHackerJob callback', source)
-        -- Safely attempt to call callback if it exists
-        if cb and type(cb) == 'function' then
-            pcall(cb, false)
-        end
-        return
-    end
-    
-    -- Enhanced callback validation with better error reporting
-    if not cb then
-        LogError('ERROR', 'Nil callback provided to hasHackerJob - this indicates a client-side issue', source)
-        return
-    end
-    
-    -- More permissive callback type checking for edge cases
-    local cbType = type(cb)
-    if cbType ~= 'function' then
-        -- Try to handle edge cases where callback might be wrapped
-        if cbType == 'table' and cb.callback and type(cb.callback) == 'function' then
-            LogError('WARN', 'Wrapped callback detected, attempting to unwrap', source)
-            cb = cb.callback
-        else
-            LogError('ERROR', 'Invalid callback type in hasHackerJob: ' .. cbType .. ' (expected function)', source)
-            return
-        end
-    end
-    
-    local Player = SafeGetPlayer(source)
+    local Player = QBCore.Functions.GetPlayer(source)
     if not Player then
-        LogError('WARN', 'Player not found for job check', source)
-        -- Safe callback execution with error handling
-        local success = pcall(cb, false)
-        if not success then
-            LogError('ERROR', 'Failed to execute callback after player check failure', source)
-        end
+        cb(false)
         return
     end
     
     -- Check if job requirement is disabled
     if not Config.RequireJob then
-        LogDebug('Job requirement disabled, allowing access', source)
-        local success = pcall(cb, true)
-        if not success then
-            LogError('ERROR', 'Failed to execute callback for disabled job requirement', source)
-        end
+        cb(true)
         return
     end
     
-    -- Safe job data access
-    local jobCheckSuccess, hasJob = SafeExecute(function()
-        if not Player.PlayerData or not Player.PlayerData.job then
-            return false
+    -- Check job data
+    if Player.PlayerData.job.name == Config.HackerJobName then
+        if Config.JobRank > 0 then
+            cb(Player.PlayerData.job.grade.level >= Config.JobRank)
+        else
+            cb(true)
         end
-        
-        if Player.PlayerData.job.name == Config.HackerJobName then
-            if Config.JobRank > 0 then
-                return Player.PlayerData.job.grade and Player.PlayerData.job.grade.level >= Config.JobRank
-            else
-                return true
-            end
-        end
-        
-        return false
-    end, 'qbcore')
-    
-    if not jobCheckSuccess then
-        LogError('ERROR', 'Failed to check job data', source)
-        local success = pcall(cb, false)
-        if not success then
-            LogError('ERROR', 'Failed to execute callback after job check failure', source)
-        end
-        return
-    end
-    
-    LogDebug('Job check result: ' .. tostring(hasJob), source)
-    
-    -- Final safe callback execution with timeout protection
-    local success, error = pcall(cb, hasJob)
-    if not success then
-        LogError('ERROR', 'Failed to execute final callback in hasHackerJob: ' .. tostring(error), source)
     else
-        LogDebug('hasHackerJob callback executed successfully', source)
+        cb(false)
     end
 end)
 
