@@ -15,7 +15,7 @@ Config.Economy = {
                 emergency = 2.5,  -- 2.5x for police vehicles
                 stolen = 3.0,     -- 3x for stolen vehicles
                 vip = 4.0,        -- 4x for government/VIP vehicles
-                repeat = 0.8      -- 20% discount for repeat customers
+                repeatCustomer = 0.8      -- 20% discount for repeat customers
             }
         },
         phoneTracking = {

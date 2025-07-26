@@ -82,7 +82,7 @@ local function CalculateServicePrice(serviceName, citizenid, targetData)
     
     local customerData = playerLimits[citizenid]
     if customerData.totalJobs > 10 then -- After 10 jobs, get repeat customer discount
-        finalMultiplier = finalMultiplier * pricing.multipliers.repeat
+        finalMultiplier = finalMultiplier * pricing.multipliers.repeatCustomer
     end
     
     -- Calculate final price with bounds
