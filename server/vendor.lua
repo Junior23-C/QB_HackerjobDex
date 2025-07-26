@@ -26,7 +26,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:canBuyLaptop', function(sou
         local charInfo = Player.PlayerData.charinfo
         local playerName = charInfo.firstname .. ' ' .. charInfo.lastname
         
-        print("^2[qb-hackerjob] ^7Player " .. playerName .. " (ID: " .. citizenId .. ") purchased a hacking laptop for $" .. price)
+        -- Laptop purchase completed
         
         cb(true)
     elseif Player.PlayerData.money.bank >= price then
@@ -43,7 +43,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:canBuyLaptop', function(sou
         local charInfo = Player.PlayerData.charinfo
         local playerName = charInfo.firstname .. ' ' .. charInfo.lastname
         
-        print("^2[qb-hackerjob] ^7Player " .. playerName .. " (ID: " .. citizenId .. ") purchased a hacking laptop for $" .. price)
+        -- Laptop purchase completed
         
         cb(true)
     else
@@ -77,7 +77,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:canBuyGPSTracker', function
         local charInfo = Player.PlayerData.charinfo
         local playerName = charInfo.firstname .. ' ' .. charInfo.lastname
         
-        print("^2[qb-hackerjob] ^7Player " .. playerName .. " purchased a GPS tracker for $" .. price)
+        -- GPS tracker purchase completed
         
         cb(true)
     elseif Player.PlayerData.money.bank >= price then
@@ -92,7 +92,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:canBuyGPSTracker', function
         local charInfo = Player.PlayerData.charinfo
         local playerName = charInfo.firstname .. ' ' .. charInfo.lastname
         
-        print("^2[qb-hackerjob] ^7Player " .. playerName .. " purchased a GPS tracker for $" .. price)
+        -- GPS tracker purchase completed
         
         cb(true)
     else

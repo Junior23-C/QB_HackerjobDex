@@ -1,5 +1,20 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+-- Enhanced error handling and reliability system for client
+local ErrorConfig = {
+    maxRetries = 3,
+    retryDelay = 500,
+    networkTimeout = 10000,
+    logLevel = 'INFO'
+}
+
+-- Network health tracking
+local NetworkHealth = {
+    lastServerResponse = 0,
+    failedRequests = 0,
+    connected = true
+}
+
 -- Variables
 local PlayerData = {}
 local playerLoaded = false
@@ -9,67 +24,306 @@ local vendorBlip = nil
 local traceLevel = 0
 local isCharging = false
 
+-- Enhanced logging functions
+local function SafeLogError(message, context)
+    local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+    local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+    print('^1[qb-hackerjob:client:ERROR] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+end
+
+local function SafeLogInfo(message, context)
+    if ErrorConfig.logLevel == 'DEBUG' or ErrorConfig.logLevel == 'INFO' then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+        print('^2[qb-hackerjob:client:INFO] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+    end
+end
+
+local function SafeLogDebug(message, context)
+    if ErrorConfig.logLevel == 'DEBUG' then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+        print('^3[qb-hackerjob:client:DEBUG] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+    end
+end
+
+-- Safe callback wrapper
+local function SafeCallback(callbackName, data, callback, retries)
+    retries = retries or ErrorConfig.maxRetries
+    
+    if not callbackName or type(callbackName) ~= 'string' then
+        SafeLogError('Invalid callback name provided to SafeCallback')
+        if callback then callback(nil) end
+        return
+    end
+    
+    if not callback or type(callback) ~= 'function' then
+        SafeLogError('Invalid callback function provided to SafeCallback')
+        return
+    end
+    
+    local function executeCallback(attempt)
+        local success, result = pcall(function()
+            QBCore.Functions.TriggerCallback(callbackName, function(callbackResult)
+                if callbackResult then
+                    NetworkHealth.lastServerResponse = GetGameTimer()
+                    NetworkHealth.failedRequests = 0
+                    NetworkHealth.connected = true
+                    SafeLogDebug('Callback successful: ' .. callbackName)
+                    callback(callbackResult)
+                else
+                    if attempt < retries then
+                        SafeLogError('Callback returned nil on attempt ' .. attempt .. '/' .. retries .. ': ' .. callbackName)
+                        Citizen.Wait(ErrorConfig.retryDelay * attempt)
+                        executeCallback(attempt + 1)
+                    else
+                        NetworkHealth.failedRequests = NetworkHealth.failedRequests + 1
+                        SafeLogError('Callback failed after all retries: ' .. callbackName)
+                        callback(nil)
+                    end
+                end
+            end, data)
+        end)
+        
+        if not success then
+            SafeLogError('Error executing callback: ' .. callbackName .. ' - ' .. tostring(result))
+            if attempt < retries then
+                Citizen.Wait(ErrorConfig.retryDelay * attempt)
+                executeCallback(attempt + 1)
+            else
+                callback(nil)
+            end
+        end
+    end
+    
+    executeCallback(1)
+end
+
+-- Safe event trigger
+local function SafeTriggerServerEvent(eventName, ...)
+    if not eventName or type(eventName) ~= 'string' then
+        SafeLogError('Invalid event name provided to SafeTriggerServerEvent')
+        return false
+    end
+    
+    local success, result = pcall(function()
+        TriggerServerEvent(eventName, ...)
+        return true
+    end)
+    
+    if not success then
+        SafeLogError('Failed to trigger server event: ' .. eventName .. ' - ' .. tostring(result))
+        return false
+    end
+    
+    SafeLogDebug('Server event triggered: ' .. eventName)
+    return true
+end
+
+-- Safe notification
+local function SafeNotify(message, type, duration)
+    if not message then
+        SafeLogError('No message provided to SafeNotify')
+        return
+    end
+    
+    local success = pcall(function()
+        QBCore.Functions.Notify(message, type or 'info', duration or 5000)
+    end)
+    
+    if not success then
+        SafeLogError('Failed to show notification: ' .. tostring(message))
+    end
+end
+
 -- Events
 
--- Initialize player data when loaded
+-- Enhanced player data initialization with error handling
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-    PlayerData = QBCore.Functions.GetPlayerData()
-    currentJob = PlayerData.job.name
-    playerLoaded = true
-    -- Re-register usable item on player loaded
-    SetupUsableItem()
-    -- Get trace level
-    traceLevel = PlayerData.metadata.tracelevel or 0
+    SafeLogInfo('Player loaded event received')
+    
+    local initSuccess = pcall(function()
+        local playerData = QBCore.Functions.GetPlayerData()
+        if not playerData then
+            SafeLogError('Failed to get player data on load')
+            return
+        end
+        
+        PlayerData = playerData
+        
+        -- Safe job assignment
+        if playerData.job and playerData.job.name then
+            currentJob = playerData.job.name
+            SafeLogDebug('Current job set to: ' .. currentJob)
+        else
+            SafeLogError('No job data found in player data')
+            currentJob = nil
+        end
+        
+        playerLoaded = true
+        
+        -- Safe trace level retrieval
+        if playerData.metadata then
+            traceLevel = playerData.metadata.tracelevel or 0
+            SafeLogDebug('Trace level set to: ' .. traceLevel)
+        else
+            SafeLogError('No metadata found in player data')
+            traceLevel = 0
+        end
+        
+        SafeLogInfo('Player initialization completed successfully')
+    end)
+    
+    if not initSuccess then
+        SafeLogError('Player initialization failed')
+        SafeNotify('System initialization error - please reconnect if issues persist', 'error')
+        return
+    end
+    
+    -- Safe usable item setup
+    pcall(SetupUsableItem)
 end)
 
--- Handle job updates
+-- Enhanced job update handler with error handling
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
-    PlayerData.job = JobInfo
-    currentJob = JobInfo.name
+    SafeLogDebug('Job update event received')
+    
+    local updateSuccess = pcall(function()
+        if not JobInfo then
+            SafeLogError('No job info provided in job update')
+            return
+        end
+        
+        if not PlayerData then
+            SafeLogError('Player data not initialized for job update')
+            PlayerData = {}
+        end
+        
+        PlayerData.job = JobInfo
+        
+        if JobInfo.name then
+            local oldJob = currentJob
+            currentJob = JobInfo.name
+            SafeLogInfo('Job updated: ' .. (oldJob or 'none') .. ' -> ' .. currentJob)
+        else
+            SafeLogError('No job name in job update')
+            currentJob = nil
+        end
+    end)
+    
+    if not updateSuccess then
+        SafeLogError('Job update failed')
+    end
 end)
 
--- Initialize the resource
+-- Enhanced resource initialization with error handling
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
     
-    PlayerData = QBCore.Functions.GetPlayerData()
-    if PlayerData and PlayerData.job then
-        currentJob = PlayerData.job.name
+    SafeLogInfo('Resource starting: ' .. resourceName)
+    
+    local startSuccess = pcall(function()
+        -- Wait a bit for QBCore to be ready
+        Citizen.Wait(1000)
+        
+        local playerData = QBCore.Functions.GetPlayerData()
+        if playerData then
+            PlayerData = playerData
+            
+            if playerData.job and playerData.job.name then
+                currentJob = playerData.job.name
+                SafeLogDebug('Current job loaded: ' .. currentJob)
+            else
+                SafeLogError('No job data found during resource start')
+                currentJob = nil
+            end
+            
+            playerLoaded = true
+            SafeLogInfo('Resource initialization completed successfully')
+        else
+            SafeLogError('Failed to get player data during resource start')
+            playerLoaded = false
+        end
+    end)
+    
+    if not startSuccess then
+        SafeLogError('Resource initialization failed')
+        playerLoaded = false
     end
-    playerLoaded = true
 end)
 
--- Handle resource stopping to properly clean up
+-- Enhanced resource cleanup with error handling
 AddEventHandler('onResourceStop', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
     
-    -- Check if laptop is open and close it
-    if exports['qb-hackerjob']:IsLaptopOpen() then
-        exports['qb-hackerjob']:CloseLaptop()
-    end
+    SafeLogInfo('Resource stopping: ' .. resourceName)
     
-    -- Clean up ped
-    if vendorPed ~= nil then
-        DeletePed(vendorPed)
+    -- Safe laptop cleanup
+    pcall(function()
+        if exports['qb-hackerjob']:IsLaptopOpen() then
+            exports['qb-hackerjob']:CloseLaptop()
+            SafeLogDebug('Laptop closed during resource stop')
+        end
+    end)
+    
+    -- Safe ped cleanup
+    pcall(function()
+        if vendorPed and DoesEntityExist(vendorPed) then
+            DeletePed(vendorPed)
+            SafeLogDebug('Vendor ped cleaned up')
+        end
         vendorPed = nil
-    end
+    end)
     
-    -- Clean up blip
-    if vendorBlip ~= nil then
-        RemoveBlip(vendorBlip)
+    -- Safe blip cleanup
+    pcall(function()
+        if vendorBlip and DoesBlipExist(vendorBlip) then
+            RemoveBlip(vendorBlip)
+            SafeLogDebug('Vendor blip cleaned up')
+        end
         vendorBlip = nil
-    end
+    end)
+    
+    -- Reset state
+    playerLoaded = false
+    PlayerData = {}
+    currentJob = nil
+    traceLevel = 0
+    isCharging = false
+    
+    SafeLogInfo('Resource cleanup completed')
 end)
 
--- Function to set up the usable item
+-- Enhanced usable item setup with error handling
 function SetupUsableItem()
-    -- Debug message
-    print("^2[qb-hackerjob] ^7Setting up usable item: " .. Config.LaptopItem)
+    SafeLogDebug('Setting up usable item')
     
-    QBCore.Functions.CreateUseableItem(Config.LaptopItem, function(source, item)
-        print("^2[qb-hackerjob] ^7Laptop item used via CreateUseableItem!")
-        TriggerEvent('qb-hackerjob:client:openLaptop')
+    local setupSuccess = pcall(function()
+        if not Config or not Config.LaptopItem then
+            SafeLogError('No laptop item configured')
+            return
+        end
+        
+        QBCore.Functions.CreateUseableItem(Config.LaptopItem, function(source, item)
+            SafeLogDebug('Laptop item used', source)
+            
+            -- Safe event trigger
+            local triggerSuccess = pcall(function()
+                TriggerEvent('qb-hackerjob:client:openLaptop')
+            end)
+            
+            if not triggerSuccess then
+                SafeLogError('Failed to trigger laptop open event', source)
+                SafeNotify('Error opening laptop - please try again', 'error')
+            end
+        end)
+        
+        SafeLogDebug('Usable item setup completed')
     end)
+    
+    if not setupSuccess then
+        SafeLogError('Failed to set up usable item')
+    end
 end
 
 -- Setup item usage for the laptop
@@ -81,7 +335,7 @@ CreateThread(function()
     
     -- Register command manually to ensure it's properly set up
     RegisterCommand(Config.LaptopCommand, function()
-        print("^2[qb-hackerjob] ^7Laptop command used!")
+        -- Laptop command triggered
         -- If using item system, check if player has it
         if Config.UsableItem then
             QBCore.Functions.TriggerCallback('QBCore:HasItem', function(hasItem)
@@ -104,7 +358,7 @@ end)
 RegisterNetEvent('inventory:client:UseItem')
 AddEventHandler('inventory:client:UseItem', function(item)
     if item.name == Config.LaptopItem then
-        print("^2[qb-hackerjob] ^7Laptop item used via inventory:client:UseItem!")
+        -- Laptop item used from inventory
         TriggerEvent('qb-hackerjob:client:openLaptop')
     elseif Config.Battery.enabled and item.name == Config.Battery.batteryItemName then
         TriggerEvent('qb-hackerjob:client:replaceBattery')
@@ -163,7 +417,7 @@ end)
 function SetupVendor()
     -- Skip if vendor is disabled in config
     if not Config.Vendor.enabled then
-        print("^3[qb-hackerjob] ^7Vendor disabled in config")
+        -- Vendor disabled in configuration
         return
     end
     
@@ -214,7 +468,7 @@ function SetupVendor()
     -- Create blip if enabled
     CreateVendorBlip()
     
-    print("^2[qb-hackerjob] ^7Laptop vendor created at: " .. Config.Vendor.coords.x .. ", " .. Config.Vendor.coords.y .. ", " .. Config.Vendor.coords.z)
+    -- Laptop vendor created successfully
 end
 
 -- Create blip for vendor
@@ -237,9 +491,9 @@ function CreateVendorBlip()
         AddTextComponentString(Config.Blip.name)
         EndTextCommandSetBlipName(vendorBlip)
         
-        print("^2[qb-hackerjob] ^7Vendor blip created")
+        -- Vendor blip created
     else
-        print("^3[qb-hackerjob] ^7Vendor blip disabled in config")
+        -- Vendor blip disabled in configuration
     end
 end
 
@@ -251,7 +505,7 @@ function ToggleVendorBlip()
         vendorBlip = nil
         Config.Blip.enabled = false
         QBCore.Functions.Notify("Hacker vendor blip disabled", "success")
-        print("^3[qb-hackerjob] ^7Vendor blip removed")
+        -- Vendor blip removed
     else
         -- Blip doesn't exist, create it
         Config.Blip.enabled = true
@@ -447,22 +701,18 @@ end
 -- Function to award XP for hacking activities
 function AwardXP(activityType)
     if not Config.XPEnabled then return end
-    print("^2[qb-hackerjob] ^7Client AwardXP called for: " .. tostring(activityType))
+    -- Awarding XP for hacking activity
     TriggerServerEvent('hackerjob:awardXP', activityType)
 end
 
 -- Handle XP stats updates from server
 RegisterNetEvent('hackerjob:updateStats')
 AddEventHandler('hackerjob:updateStats', function(stats)
-    print("^2[qb-hackerjob] ^7Received stats update from server:")
-    print("  Level: " .. tostring(stats.level))
-    print("  XP: " .. tostring(stats.xp))
-    print("  Next Level XP: " .. tostring(stats.nextLevelXP))
-    print("  Level Name: " .. tostring(stats.levelName))
+    -- Received stats update from server
     
     -- Always try to update laptop UI if open
     if exports['qb-hackerjob']:IsLaptopOpen() then
-        print("^2[qb-hackerjob] ^7Laptop is open, sending NUI message...")
+        -- Updating laptop UI with new stats
         SendNUIMessage({
             action = 'updateHackerStats',
             type = 'updateHackerStats', -- Send both for compatibility
@@ -484,7 +734,7 @@ AddEventHandler('hackerjob:updateStats', function(stats)
             })
         end)
     else
-        print("^3[qb-hackerjob] ^7Laptop is not open, skipping UI update")
+        -- Laptop UI not available for update
     end
 end)
 
@@ -516,7 +766,7 @@ exports('GetPlayerXPData', GetPlayerXPData)
 
 -- Test command for XP
 RegisterCommand('testxp', function()
-    print("^2[qb-hackerjob] ^7Running testxp command...")
+    -- Running XP test command
     AwardXP('plateLookup')
     QBCore.Functions.Notify("Test XP awarded!", "success")
 end, false)
@@ -525,22 +775,21 @@ end, false)
 RegisterCommand('checkxp', function()
     -- Method 1: Get from server callback
     QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
-        print("^2[qb-hackerjob] ^7Server callback XP Stats:")
-        print("  Level: " .. stats.level)
-        print("  XP: " .. stats.xp)
-        print("  Next Level XP: " .. stats.nextLevelXP)
-        print("  Level Name: " .. stats.levelName)
+        -- Server callback XP stats retrieved
         QBCore.Functions.Notify("Server: Level " .. stats.level .. " (" .. stats.levelName .. ") - " .. stats.xp .. " XP", "primary")
     end)
     
     -- Method 2: Get from local metadata
     local localStats = GetPlayerXPData()
-    print("^2[qb-hackerjob] ^7Local metadata XP Stats:")
-    print("  Level: " .. localStats.level)
-    print("  XP: " .. localStats.xp)
-    print("  Next Level XP: " .. localStats.nextLevelXP)
-    print("  Level Name: " .. localStats.levelName)
+    -- Local metadata XP stats retrieved
     QBCore.Functions.Notify("Local: Level " .. localStats.level .. " (" .. localStats.levelName .. ") - " .. localStats.xp .. " XP", "info")
+end, false)
+
+-- Debug command to force open laptop
+RegisterCommand('openlaptop', function()
+    -- Force opening laptop interface
+    local testStats = {level = 1, xp = 0, nextLevelXP = 100, levelName = "Script Kiddie"}
+    exports['qb-hackerjob']:OpenHackerLaptop(testStats)
 end, false)
 
 -- Handle metadata updates
@@ -551,7 +800,7 @@ AddEventHandler('QBCore:Player:SetPlayerData', function(val)
     -- Check if laptop is open and update stats when metadata changes
     if exports['qb-hackerjob']:IsLaptopOpen() and val.metadata then
         local stats = GetPlayerXPData()
-        print("^2[qb-hackerjob] ^7Metadata updated, refreshing laptop UI...")
+        -- Metadata updated, refreshing UI
         SendNUIMessage({
             action = 'updateHackerStats',
             type = 'updateHackerStats',
@@ -563,4 +812,4 @@ AddEventHandler('QBCore:Player:SetPlayerData', function(val)
     end
 end)
 
-print("^2[qb-hackerjob] ^7Client main script loaded successfully")
+-- Client main script initialized

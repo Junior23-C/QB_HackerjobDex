@@ -43,6 +43,19 @@ function PerformVehicleAction(action, plate)
         return false
     end
     
+    -- Validate inputs
+    if not action or type(action) ~= 'string' or not plate or type(plate) ~= 'string' then
+        QBCore.Functions.Notify("Invalid parameters", "error")
+        return false
+    end
+    
+    -- Sanitize plate input
+    plate = plate:gsub("%s+", ""):upper()
+    if not plate:match("^[A-Z0-9]+$") or string.len(plate) < 2 or string.len(plate) > 8 then
+        QBCore.Functions.Notify("Invalid plate format", "error")
+        return false
+    end
+    
     -- Set cooldown
     controlCooldown = true
     SetTimeout(2000, function()
@@ -57,6 +70,12 @@ function PerformVehicleAction(action, plate)
     
     if not vehicle then
         QBCore.Functions.Notify("Vehicle not found nearby", "error")
+        return false
+    end
+    
+    -- Add distance limitation for security (max 50 meters)
+    if distance > 50.0 then
+        QBCore.Functions.Notify("Vehicle is too far away for remote control", "error")
         return false
     end
     
@@ -175,7 +194,7 @@ function PerformVehicleAction(action, plate)
         -- Save to a persistent variable for tracking across resource restarts
         TriggerServerEvent('qb-hackerjob:server:saveDisabledBrakes', plate, originalBrakeForce, originalMass, originalTraction)
         
-        print("^2[qb-hackerjob] ^7Vehicle brakes permanently disabled for plate: " .. plate)
+        -- Vehicle brakes disabled
         
         -- Award XP and log activity
         exports['qb-hackerjob']:AwardXP('vehicleControl')
@@ -188,8 +207,7 @@ function PerformVehicleAction(action, plate)
                 Wait(3000)
                 
                 if not DoesEntityExist(vehicle) then
-                    -- Don't remove from tracking - we want to find it again if it respawns
-                    print("^3[qb-hackerjob] ^7Vehicle temporarily lost, still tracking: " .. plate)
+                    -- Vehicle tracking maintained
                     -- Wait longer before checking again
                     Wait(10000)
                     -- Continue the loop to keep checking
@@ -209,7 +227,7 @@ function PerformVehicleAction(action, plate)
                         local timeNow = GetGameTimer()
                         local timeDisabled = disabledBrakeVehicles[plate].timeDisabled or 0
                         if (timeNow - timeDisabled) < 30000 then
-                            print("^3[qb-hackerjob] ^7Prevented instant repair of brakes for: " .. plate)
+                            -- Preventing instant brake repair
                             SetVehicleHandlingFloat(vehicle, "CHandlingData", "fBrakeForce", 0.05)
                             -- Keep checking
                             goto continue
@@ -225,7 +243,7 @@ function PerformVehicleAction(action, plate)
                         disabledBrakeVehicles[plate] = nil
                         TriggerServerEvent('qb-hackerjob:server:removeDisabledBrakes', plate)
                         
-                        print("^2[qb-hackerjob] ^7Vehicle fully repaired by mechanic, brakes restored for plate: " .. plate)
+                        -- Vehicle brakes restored by mechanic
                         
                         -- Notify driver if possible
                         TriggerServerEvent('qb-hackerjob:server:notifyDriver', plate, "Vehicle braking system has been professionally repaired and is now functioning normally")
@@ -292,7 +310,14 @@ end
 -- Register event to handle vehicle actions (called from NUI)
 RegisterNetEvent('qb-hackerjob:client:vehicleAction')
 AddEventHandler('qb-hackerjob:client:vehicleAction', function(action, plate)
-    PerformVehicleAction(action, plate)
+    -- Server-side authorization check before performing action
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
+        if not hasJob then
+            QBCore.Functions.Notify("Access denied - insufficient permissions", "error")
+            return
+        end
+        PerformVehicleAction(action, plate)
+    end)
 end)
 
 -- Export the function
@@ -300,7 +325,7 @@ exports('PerformVehicleAction', PerformVehicleAction)
 
 -- Function to handle tracking from the laptop
 function TrackVehicleFromLaptop(plate)
-    print("^2[qb-hackerjob] ^7Attempting to track vehicle with plate: " .. tostring(plate))
+    -- Attempting vehicle tracking
     
     if not Config.VehicleTracking.enabled then
         QBCore.Functions.Notify("Vehicle tracking is not enabled", "error")
@@ -309,7 +334,7 @@ function TrackVehicleFromLaptop(plate)
     
     -- Normal code path with item check
     QBCore.Functions.TriggerCallback('QBCore:HasItem', function(hasItem)
-        print("^3[qb-hackerjob] ^7Has GPS tracker: " .. tostring(hasItem))
+        -- GPS tracker item check
         if not hasItem then
             QBCore.Functions.Notify("You need a GPS tracker to track vehicles", "error")
             return false
@@ -333,7 +358,7 @@ function TrackVehicleFromLaptop(plate)
                     
                     if vehPlate == normalizedPlate and distance <= 100.0 then
                         foundVehicle = veh
-                        print("^2[qb-hackerjob] ^7Found matching vehicle at distance: " .. distance)
+                        -- Matching vehicle found
                         break
                     end
                 end
@@ -341,7 +366,7 @@ function TrackVehicleFromLaptop(plate)
         end
         
         if foundVehicle then
-            print("^2[qb-hackerjob] ^7Starting tracking process for: " .. normalizedPlate)
+            -- Starting vehicle tracking
             
             -- Remove the GPS tracker
             TriggerServerEvent('qb-hackerjob:server:removeItem', Config.GPSTrackerItem, 1)
@@ -351,7 +376,7 @@ function TrackVehicleFromLaptop(plate)
             QBCore.Functions.Notify("Vehicle tracking activated", "success")
             return true
         else
-            print("^1[qb-hackerjob] ^7No matching vehicle found for: " .. normalizedPlate)
+            -- Vehicle not found for tracking
             QBCore.Functions.Notify("Cannot find vehicle with plate " .. plate .. " nearby", "error")
             return false
         end
@@ -363,7 +388,7 @@ end
 -- Event to sync disabled brakes from server
 RegisterNetEvent('qb-hackerjob:client:syncDisabledBrakes')
 AddEventHandler('qb-hackerjob:client:syncDisabledBrakes', function(serverDisabledBrakes)
-    print("^2[qb-hackerjob] ^7Received disabled brakes list from server, entries: " .. (serverDisabledBrakes and #serverDisabledBrakes or 0))
+    -- Syncing disabled brakes from server
     
     -- Track the plates locally so we can apply effects when vehicles are found
     for plate, data in pairs(serverDisabledBrakes) do
@@ -375,7 +400,7 @@ AddEventHandler('qb-hackerjob:client:syncDisabledBrakes', function(serverDisable
                 originalTraction = data.originalTraction,
                 timeDisabled = GetGameTimer() - 60000 -- Set to 1 minute ago to prevent instant repair
             }
-            print("^3[qb-hackerjob] ^7Added vehicle to local tracking: " .. plate)
+            -- Vehicle added to brake tracking
         end
     end
 end)
@@ -400,7 +425,7 @@ CreateThread(function()
                         local vehPlate = GetVehicleNumberPlateText(veh):gsub("%s+", ""):upper()
                         if vehPlate == plate then
                             -- Found a matching vehicle!
-                            print("^3[qb-hackerjob] ^7Found tracked vehicle with disabled brakes: " .. plate)
+                            -- Found vehicle with disabled brakes
                             disabledBrakeVehicles[plate].vehicle = veh
                             
                             -- Apply disabled brakes effect immediately
@@ -440,7 +465,7 @@ AddEventHandler('onResourceStop', function(resourceName)
         if DoesEntityExist(data.vehicle) and data.originalBrakeForce then
             SetVehicleHandlingFloat(data.vehicle, "CHandlingData", "fBrakeForce", data.originalBrakeForce)
             ModifyVehicleTopSpeed(data.vehicle, 1.0)
-            print("^3[qb-hackerjob] ^7Resource stopping: Restored brakes for vehicle " .. plate)
+            -- Resource cleanup: brakes restored
         end
     end
 end)

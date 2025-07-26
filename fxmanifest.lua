@@ -9,7 +9,8 @@ shared_scripts {
     '@qb-core/shared/locale.lua',
     'locales/en.lua',
     'config/config.lua',
-    'config/vehicles.lua'
+    'config/vehicles.lua',
+    'config/production.lua'
 }
 
 client_scripts {
@@ -34,7 +35,9 @@ server_scripts {
     'server/radio_decryption.lua',
     'server/vendor.lua',
     'server/vehicle_tracker.lua',
-    'server/phone_hacking.lua'
+    'server/phone_hacking.lua',
+    'testing/test_framework.lua',
+    'testing/load_test.lua'
 }
 
 ui_page 'html/index.html'

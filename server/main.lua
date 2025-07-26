@@ -1,19 +1,293 @@
+-- Enhanced error handling and reliability system for QB-HackerJob
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Create item if it doesn't exist
-Citizen.CreateThread(function()
-    Citizen.Wait(5000) -- Wait for everything to initialize
+-- Error handling configuration
+local ErrorConfig = {
+    maxRetries = 3,
+    retryDelay = 500, -- milliseconds
+    circuitBreakerThreshold = 5, -- failures before circuit opens
+    circuitBreakerTimeout = 30000, -- milliseconds
+    logLevel = 'INFO', -- DEBUG, INFO, WARN, ERROR
+    healthCheckInterval = 60000 -- milliseconds
+}
+
+-- Circuit breaker state management
+local CircuitBreakers = {
+    database = { failures = 0, lastFailure = 0, state = 'CLOSED' },
+    qbcore = { failures = 0, lastFailure = 0, state = 'CLOSED' },
+    inventory = { failures = 0, lastFailure = 0, state = 'CLOSED' }
+}
+
+-- Health monitoring
+local HealthStatus = {
+    database = true,
+    qbcore = true,
+    inventory = true,
+    lastCheck = 0
+}
+
+-- Utility functions for error handling
+local function LogError(level, message, context)
+    if not message then return end
     
-    -- Debug print of item structure
-    print('^3[qb-hackerjob] DEBUG: QBCore.Shared.Items is type: ^7' .. type(QBCore.Shared.Items))
-    print('^3[qb-hackerjob] DEBUG: Trying to access ' .. Config.LaptopItem)
+    local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+    local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+    local logMessage = string.format('[%s] [%s] %s%s', timestamp, level, message, contextStr)
     
-    -- Check if laptop item exists in QBCore items
-    if QBCore.Shared.Items and not QBCore.Shared.Items[Config.LaptopItem] then
-        print('^1[qb-hackerjob] Item lookup failed. Adding item programmatically...^7')
+    print('^1[qb-hackerjob:ERROR] ^7' .. logMessage)
+    
+    -- Log to file if available (optional)
+    if Config.Logging and Config.Logging.enabled then
+        -- Could add file logging here if needed
+    end
+end
+
+local function LogInfo(message, context)
+    if ErrorConfig.logLevel == 'DEBUG' or ErrorConfig.logLevel == 'INFO' then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+        print('^2[qb-hackerjob:INFO] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+    end
+end
+
+local function LogDebug(message, context)
+    if ErrorConfig.logLevel == 'DEBUG' then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+        print('^3[qb-hackerjob:DEBUG] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+    end
+end
+
+-- Circuit breaker implementation
+local function CheckCircuitBreaker(service)
+    if not CircuitBreakers[service] then
+        CircuitBreakers[service] = { failures = 0, lastFailure = 0, state = 'CLOSED' }
+    end
+    
+    local breaker = CircuitBreakers[service]
+    local currentTime = GetGameTimer()
+    
+    -- Check if circuit should be reset
+    if breaker.state == 'OPEN' and (currentTime - breaker.lastFailure) > ErrorConfig.circuitBreakerTimeout then
+        breaker.state = 'HALF_OPEN'
+        breaker.failures = 0
+        LogInfo('Circuit breaker reset for service: ' .. service)
+    end
+    
+    return breaker.state ~= 'OPEN'
+end
+
+local function RecordFailure(service, error)
+    if not CircuitBreakers[service] then
+        CircuitBreakers[service] = { failures = 0, lastFailure = 0, state = 'CLOSED' }
+    end
+    
+    local breaker = CircuitBreakers[service]
+    breaker.failures = breaker.failures + 1
+    breaker.lastFailure = GetGameTimer()
+    
+    LogError('ERROR', 'Service failure recorded: ' .. service .. ' - ' .. tostring(error))
+    
+    if breaker.failures >= ErrorConfig.circuitBreakerThreshold then
+        breaker.state = 'OPEN'
+        LogError('ERROR', 'Circuit breaker OPEN for service: ' .. service)
+        HealthStatus[service] = false
+    end
+end
+
+local function RecordSuccess(service)
+    if not CircuitBreakers[service] then
+        CircuitBreakers[service] = { failures = 0, lastFailure = 0, state = 'CLOSED' }
+    end
+    
+    local breaker = CircuitBreakers[service]
+    if breaker.state == 'HALF_OPEN' then
+        breaker.state = 'CLOSED'
+        LogInfo('Circuit breaker CLOSED for service: ' .. service)
+    end
+    breaker.failures = 0
+    HealthStatus[service] = true
+end
+
+-- Safe function wrapper with retry logic
+local function SafeExecute(func, service, maxRetries)
+    maxRetries = maxRetries or ErrorConfig.maxRetries
+    
+    if not CheckCircuitBreaker(service) then
+        LogError('ERROR', 'Circuit breaker OPEN for service: ' .. service)
+        return false, 'Service temporarily unavailable'
+    end
+    
+    for attempt = 1, maxRetries do
+        local success, result = pcall(func)
         
-        -- Add the item programmatically
-        QBCore.Functions.AddItem(Config.LaptopItem, {
+        if success then
+            RecordSuccess(service)
+            return true, result
+        else
+            LogError('WARN', 'Attempt ' .. attempt .. '/' .. maxRetries .. ' failed for ' .. service .. ': ' .. tostring(result))
+            
+            if attempt < maxRetries then
+                Citizen.Wait(ErrorConfig.retryDelay * attempt) -- Exponential backoff
+            else
+                RecordFailure(service, result)
+                return false, result
+            end
+        end
+    end
+    
+    return false, 'Max retries exceeded'
+end
+
+-- Safe QBCore functions
+local function SafeGetPlayer(source)
+    if not source or type(source) ~= 'number' then
+        LogError('ERROR', 'Invalid source provided to SafeGetPlayer', source)
+        return nil
+    end
+    
+    local success, result = SafeExecute(function()
+        return QBCore.Functions.GetPlayer(source)
+    end, 'qbcore')
+    
+    if not success then
+        LogError('ERROR', 'Failed to get player data', source)
+        return nil
+    end
+    
+    return result
+end
+
+-- Safe database operations
+local function SafeDBQuery(query, parameters, callback)
+    if not query or type(query) ~= 'string' then
+        LogError('ERROR', 'Invalid query provided to SafeDBQuery')
+        if callback then callback(nil) end
+        return
+    end
+    
+    local success, result = SafeExecute(function()
+        MySQL.query(query, parameters or {}, function(queryResult)
+            if queryResult then
+                RecordSuccess('database')
+                if callback then callback(queryResult) end
+            else
+                RecordFailure('database', 'Query returned nil result')
+                if callback then callback(nil) end
+            end
+        end)
+        return true
+    end, 'database')
+    
+    if not success then
+        LogError('ERROR', 'Database query failed: ' .. tostring(result))
+        if callback then callback(nil) end
+    end
+end
+
+-- Dependency validation
+local function ValidateDependencies()
+    local dependencies = {
+        'qb-core',
+        'oxmysql'
+    }
+    
+    local missing = {}
+    
+    for _, dependency in ipairs(dependencies) do
+        if GetResourceState(dependency) ~= 'started' then
+            table.insert(missing, dependency)
+        end
+    end
+    
+    if #missing > 0 then
+        LogError('ERROR', 'Missing dependencies: ' .. table.concat(missing, ', '))
+        return false, missing
+    end
+    
+    LogInfo('All dependencies validated successfully')
+    return true, {}
+end
+
+-- Health check system
+local function PerformHealthCheck()
+    local currentTime = GetGameTimer()
+    
+    if (currentTime - HealthStatus.lastCheck) < ErrorConfig.healthCheckInterval then
+        return HealthStatus
+    end
+    
+    HealthStatus.lastCheck = currentTime
+    LogDebug('Performing health check')
+    
+    -- Check QBCore
+    local qbSuccess = SafeExecute(function()
+        return QBCore and QBCore.Functions and true
+    end, 'qbcore')
+    HealthStatus.qbcore = qbSuccess
+    
+    -- Check Database
+    SafeDBQuery('SELECT 1 as test', {}, function(result)
+        HealthStatus.database = result ~= nil
+    end)
+    
+    -- Check inventory (if ox_inventory is available)
+    if GetResourceState('ox_inventory') == 'started' then
+        HealthStatus.inventory = true
+    else
+        HealthStatus.inventory = Config.Inventory and Config.Inventory.type == 'qb'
+    end
+    
+    return HealthStatus
+end
+
+-- Enhanced initialization with dependency validation and error handling
+Citizen.CreateThread(function()
+    LogInfo('Starting QB-HackerJob server initialization')
+    
+    -- Wait for dependencies to be ready
+    local maxWaitTime = 30000 -- 30 seconds
+    local startTime = GetGameTimer()
+    
+    while GetGameTimer() - startTime < maxWaitTime do
+        local depsValid, missing = ValidateDependencies()
+        if depsValid then
+            LogInfo('Dependencies validated, proceeding with initialization')
+            break
+        else
+            LogError('WARN', 'Waiting for dependencies: ' .. table.concat(missing, ', '))
+            Citizen.Wait(2000)
+        end
+    end
+    
+    -- Final dependency check
+    local depsValid, missing = ValidateDependencies()
+    if not depsValid then
+        LogError('ERROR', 'Failed to start - missing critical dependencies: ' .. table.concat(missing, ', '))
+        return
+    end
+    
+    Citizen.Wait(5000) -- Additional wait for everything to initialize
+    
+    -- Safe item creation with error handling
+    LogInfo('Checking and creating required items')
+    
+    -- Safely check if laptop item exists
+    local itemCheckSuccess, hasLaptopItem = SafeExecute(function()
+        return QBCore.Shared.Items and QBCore.Shared.Items[Config.LaptopItem] ~= nil
+    end, 'qbcore')
+    
+    if not itemCheckSuccess then
+        LogError('ERROR', 'Failed to check for laptop item existence')
+        return
+    end
+    
+    if not hasLaptopItem then
+        -- Item not found, adding programmatically
+        
+        -- Add the laptop item with error handling
+        local addItemSuccess = SafeExecute(function()
+            QBCore.Functions.AddItem(Config.LaptopItem, {
             name = Config.LaptopItem,
             label = 'Hacking Laptop',
             weight = 2000,
@@ -24,17 +298,31 @@ Citizen.CreateThread(function()
             shouldClose = true,
             combinable = nil,
             description = 'A specialized laptop for various hacking operations'
-        })
+            })
+            return true
+        end, 'qbcore')
         
-        print('^2[qb-hackerjob] Added ' .. Config.LaptopItem .. ' item programmatically^7')
+        if addItemSuccess then
+            LogInfo('Laptop item added successfully')
+        else
+            LogError('ERROR', 'Failed to add laptop item')
+        end
     else
-        print('^2[qb-hackerjob] Successfully accessed ' .. Config.LaptopItem .. ' item^7')
+        LogInfo('Laptop item already exists')
     end
     
-    -- Check if battery item exists
-    if Config.Battery.enabled and QBCore.Shared.Items and not QBCore.Shared.Items[Config.Battery.batteryItemName] then
-        -- Add the battery item programmatically
-        QBCore.Functions.AddItem(Config.Battery.batteryItemName, {
+    -- Safe battery item creation
+    if Config.Battery.enabled then
+        local batteryCheckSuccess, hasBatteryItem = SafeExecute(function()
+            return QBCore.Shared.Items and QBCore.Shared.Items[Config.Battery.batteryItemName] ~= nil
+        end, 'qbcore')
+        
+        if not batteryCheckSuccess then
+            LogError('ERROR', 'Failed to check for battery item existence')
+        elseif not hasBatteryItem then
+            -- Add the battery item with error handling
+            local addBatterySuccess = SafeExecute(function()
+                QBCore.Functions.AddItem(Config.Battery.batteryItemName, {
             name = Config.Battery.batteryItemName,
             label = 'Laptop Battery',
             weight = 500,
@@ -45,15 +333,32 @@ Citizen.CreateThread(function()
             shouldClose = true,
             combinable = nil,
             description = 'A replacement battery for the hacking laptop'
-        })
-        
-        print('^2[qb-hackerjob] Added ' .. Config.Battery.batteryItemName .. ' item programmatically^7')
+                })
+                return true
+            end, 'qbcore')
+            
+            if addBatterySuccess then
+                LogInfo('Battery item added successfully')
+            else
+                LogError('ERROR', 'Failed to add battery item')
+            end
+        else
+            LogInfo('Battery item already exists')
+        end
     end
     
-    -- Check if charger item exists
-    if Config.Battery.enabled and QBCore.Shared.Items and not QBCore.Shared.Items[Config.Battery.chargerItemName] then
-        -- Add the charger item programmatically
-        QBCore.Functions.AddItem(Config.Battery.chargerItemName, {
+    -- Safe charger item creation
+    if Config.Battery.enabled then
+        local chargerCheckSuccess, hasChargerItem = SafeExecute(function()
+            return QBCore.Shared.Items and QBCore.Shared.Items[Config.Battery.chargerItemName] ~= nil
+        end, 'qbcore')
+        
+        if not chargerCheckSuccess then
+            LogError('ERROR', 'Failed to check for charger item existence')
+        elseif not hasChargerItem then
+            -- Add the charger item with error handling
+            local addChargerSuccess = SafeExecute(function()
+                QBCore.Functions.AddItem(Config.Battery.chargerItemName, {
             name = Config.Battery.chargerItemName,
             label = 'Laptop Charger',
             weight = 300,
@@ -64,17 +369,31 @@ Citizen.CreateThread(function()
             shouldClose = true,
             combinable = nil,
             description = 'A charger for the hacking laptop'
-        })
-        
-        print('^2[qb-hackerjob] Added ' .. Config.Battery.chargerItemName .. ' item programmatically^7')
+                })
+                return true
+            end, 'qbcore')
+            
+            if addChargerSuccess then
+                LogInfo('Charger item added successfully')
+            else
+                LogError('ERROR', 'Failed to add charger item')
+            end
+        else
+            LogInfo('Charger item already exists')
+        end
     end
     
-    -- Check if job exists
-    if QBCore.Shared.Jobs and not QBCore.Shared.Jobs[Config.HackerJobName] then
-        print('^1[qb-hackerjob] Job lookup failed. Adding job programmatically...^7')
-        
-        -- Add the job programmatically
-        QBCore.Functions.AddJob(Config.HackerJobName, {
+    -- Safe job creation
+    local jobCheckSuccess, hasJob = SafeExecute(function()
+        return QBCore.Shared.Jobs and QBCore.Shared.Jobs[Config.HackerJobName] ~= nil
+    end, 'qbcore')
+    
+    if not jobCheckSuccess then
+        LogError('ERROR', 'Failed to check for hacker job existence')
+    elseif not hasJob then
+        -- Add the hacker job with error handling
+        local addJobSuccess = SafeExecute(function()
+            QBCore.Functions.AddJob(Config.HackerJobName, {
             label = 'Hacker',
             defaultDuty = true,
             offDutyPay = false,
@@ -101,186 +420,579 @@ Citizen.CreateThread(function()
                     payment = 150
                 }
             }
-        })
+            })
+            return true
+        end, 'qbcore')
         
-        print('^2[qb-hackerjob] Added ' .. Config.HackerJobName .. ' job programmatically^7')
+        if addJobSuccess then
+            LogInfo('Hacker job added successfully')
+        else
+            LogError('ERROR', 'Failed to add hacker job')
+        end
     else
-        print('^2[qb-hackerjob] Successfully accessed ' .. Config.HackerJobName .. ' job^7')
+        LogInfo('Hacker job already exists')
     end
     
-    -- Make the item usable on the server side
-    QBCore.Functions.CreateUseableItem(Config.LaptopItem, function(source)
-        print('^2[qb-hackerjob] ^7Server: Player ' .. source .. ' used laptop item')
-        TriggerClientEvent('qb-hackerjob:client:openLaptop', source)
-    end)
+    -- Safe usable item registration
+    local useableItemSuccess = SafeExecute(function()
+        QBCore.Functions.CreateUseableItem(Config.LaptopItem, function(source)
+            LogDebug('Laptop item used by player', source)
+            
+            -- Validate source
+            if not source or type(source) ~= 'number' then
+                LogError('ERROR', 'Invalid source in laptop item usage', source)
+                return
+            end
+            
+            -- Safe event trigger
+            local triggerSuccess = SafeExecute(function()
+                TriggerClientEvent('qb-hackerjob:client:openLaptop', source)
+                return true
+            end, 'qbcore')
+            
+            if not triggerSuccess then
+                LogError('ERROR', 'Failed to trigger laptop open event', source)
+            end
+        end)
+        return true
+    end, 'qbcore')
     
-    -- Make battery item usable
-    QBCore.Functions.CreateUseableItem(Config.Battery.batteryItemName, function(source)
-        print('^2[qb-hackerjob] ^7Server: Player ' .. source .. ' used battery item')
-        TriggerClientEvent('qb-hackerjob:client:replaceBattery', source)
-    end)
+    if not useableItemSuccess then
+        LogError('ERROR', 'Failed to register laptop as useable item')
+    end
     
-    -- Make charger item usable
-    QBCore.Functions.CreateUseableItem(Config.Battery.chargerItemName, function(source)
-        print('^2[qb-hackerjob] ^7Server: Player ' .. source .. ' used charger item')
-        TriggerClientEvent('qb-hackerjob:client:toggleCharger', source)
-    end)
+    -- Safe battery item registration
+    if Config.Battery.enabled then
+        local batteryUseableSuccess = SafeExecute(function()
+            QBCore.Functions.CreateUseableItem(Config.Battery.batteryItemName, function(source)
+                LogDebug('Battery item used by player', source)
+                
+                if not source or type(source) ~= 'number' then
+                    LogError('ERROR', 'Invalid source in battery item usage', source)
+                    return
+                end
+                
+                local triggerSuccess = SafeExecute(function()
+                    TriggerClientEvent('qb-hackerjob:client:replaceBattery', source)
+                    return true
+                end, 'qbcore')
+                
+                if not triggerSuccess then
+                    LogError('ERROR', 'Failed to trigger battery replace event', source)
+                end
+            end)
+            return true
+        end, 'qbcore')
+        
+        if not batteryUseableSuccess then
+            LogError('ERROR', 'Failed to register battery as useable item')
+        end
+    end
+    
+    -- Safe charger item registration
+    if Config.Battery.enabled then
+        local chargerUseableSuccess = SafeExecute(function()
+            QBCore.Functions.CreateUseableItem(Config.Battery.chargerItemName, function(source)
+                LogDebug('Charger item used by player', source)
+                
+                if not source or type(source) ~= 'number' then
+                    LogError('ERROR', 'Invalid source in charger item usage', source)
+                    return
+                end
+                
+                local triggerSuccess = SafeExecute(function()
+                    TriggerClientEvent('qb-hackerjob:client:toggleCharger', source)
+                    return true
+                end, 'qbcore')
+                
+                if not triggerSuccess then
+                    LogError('ERROR', 'Failed to trigger charger toggle event', source)
+                end
+            end)
+            return true
+        end, 'qbcore')
+        
+        if not chargerUseableSuccess then
+            LogError('ERROR', 'Failed to register charger as useable item')
+        end
+    end
+    
+    LogInfo('QB-HackerJob server initialization completed successfully')
 end)
 
--- Handle item use directly
+-- Health monitoring thread
+Citizen.CreateThread(function()
+    while true do
+        Citizen.Wait(ErrorConfig.healthCheckInterval)
+        
+        local health = PerformHealthCheck()
+        local healthyServices = 0
+        local totalServices = 0
+        
+        for service, status in pairs(health) do
+            if service ~= 'lastCheck' then
+                totalServices = totalServices + 1
+                if status then
+                    healthyServices = healthyServices + 1
+                end
+            end
+        end
+        
+        local healthPercentage = (healthyServices / totalServices) * 100
+        
+        if healthPercentage < 100 then
+            LogError('WARN', string.format('System health: %.1f%% (%d/%d services healthy)', 
+                healthPercentage, healthyServices, totalServices))
+            
+            for service, status in pairs(health) do
+                if service ~= 'lastCheck' and not status then
+                    LogError('ERROR', 'Service unhealthy: ' .. service)
+                end
+            end
+        else
+            LogDebug('All services healthy')
+        end
+    end
+end)
+
+-- Graceful shutdown handler
+AddEventHandler('onResourceStop', function(resourceName)
+    if resourceName ~= GetCurrentResourceName() then return end
+    
+    LogInfo('QB-HackerJob shutting down gracefully')
+    
+    -- Perform any cleanup operations here
+    -- Save any important data
+    -- Close database connections if needed
+    
+    LogInfo('QB-HackerJob shutdown completed')
+end)
+
+-- Admin command to check system health
+QBCore.Commands.Add('hackerstatus', 'Check hacker job system status (Admin Only)', {}, true, function(source, args)
+    local src = source
+    
+    if not src or type(src) ~= 'number' then return end
+    
+    local AdminPlayer = SafeGetPlayer(src)
+    if not AdminPlayer then return end
+    
+    local hasPermSuccess, hasPermission = SafeExecute(function()
+        return QBCore.Functions.HasPermission(src, 'admin')
+    end, 'qbcore')
+    
+    if not hasPermSuccess or not hasPermission then
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    local health = PerformHealthCheck()
+    
+    print('^2[qb-hackerjob] ^7========== SYSTEM STATUS ==========')
+    for service, status in pairs(health) do
+        if service ~= 'lastCheck' then
+            local statusText = status and '^2HEALTHY^7' or '^1UNHEALTHY^7'
+            print(string.format('^2[qb-hackerjob] ^7%s: %s', service:upper(), statusText))
+        end
+    end
+    
+    -- Circuit breaker status
+    print('^2[qb-hackerjob] ^7========== CIRCUIT BREAKERS ==========')
+    for service, breaker in pairs(CircuitBreakers) do
+        local state = breaker.state
+        local stateColor = state == 'CLOSED' and '^2' or (state == 'HALF_OPEN' and '^3' or '^1')
+        print(string.format('^2[qb-hackerjob] ^7%s: %s%s^7 (failures: %d)', 
+            service:upper(), stateColor, state, breaker.failures))
+    end
+    print('^2[qb-hackerjob] ^7=====================================')
+    
+    SafeExecute(function()
+        TriggerClientEvent('QBCore:Notify', src, 'System status displayed in console', 'success')
+    end, 'qbcore')
+end, 'admin')
+
+-- Enhanced item use handler with error handling
 RegisterServerEvent('qb-hackerjob:server:useItem')
 AddEventHandler('qb-hackerjob:server:useItem', function()
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
     
-    if Player and Player.Functions.GetItemByName(Config.LaptopItem) then
-        TriggerClientEvent('qb-hackerjob:client:openLaptop', src)
+    -- Validate source
+    if not src or type(src) ~= 'number' then
+        LogError('ERROR', 'Invalid source in useItem event', src)
+        return
+    end
+    
+    local Player = SafeGetPlayer(src)
+    if not Player then
+        LogError('WARN', 'Player not found for useItem event', src)
+        return
+    end
+    
+    -- Safe item check
+    local hasItemSuccess, hasItem = SafeExecute(function()
+        local item = Player.Functions.GetItemByName(Config.LaptopItem)
+        return item and item.amount > 0
+    end, 'qbcore')
+    
+    if not hasItemSuccess then
+        LogError('ERROR', 'Failed to check for laptop item', src)
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, "System error - please try again", "error")
+        end, 'qbcore')
+        return
+    end
+    
+    if hasItem then
+        SafeExecute(function()
+            TriggerClientEvent('qb-hackerjob:client:openLaptop', src)
+        end, 'qbcore')
     else
-        TriggerClientEvent('QBCore:Notify', src, "You don't have a hacking laptop", "error")
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, "You don't have a hacking laptop", "error")
+        end, 'qbcore')
     end
 end)
 
--- Register server callback for job check
+-- Enhanced job check callback with error handling
 QBCore.Functions.CreateCallback('qb-hackerjob:server:hasHackerJob', function(source, cb)
-    local Player = QBCore.Functions.GetPlayer(source)
-    
-    if not Player then
+    -- Validate inputs
+    if not source or type(source) ~= 'number' then
+        LogError('ERROR', 'Invalid source in hasHackerJob callback', source)
         cb(false)
         return
     end
     
+    if not cb or type(cb) ~= 'function' then
+        LogError('ERROR', 'Invalid callback in hasHackerJob', source)
+        return
+    end
+    
+    local Player = SafeGetPlayer(source)
+    if not Player then
+        LogError('WARN', 'Player not found for job check', source)
+        cb(false)
+        return
+    end
+    
+    -- Check if job requirement is disabled
     if not Config.RequireJob then
+        LogDebug('Job requirement disabled, allowing access', source)
         cb(true)
         return
     end
     
-    if Player.PlayerData.job.name == Config.HackerJobName then
-        if Config.JobRank > 0 then
-            cb(Player.PlayerData.job.grade.level >= Config.JobRank)
-        else
-            cb(true)
+    -- Safe job data access
+    local jobCheckSuccess, hasJob = SafeExecute(function()
+        if not Player.PlayerData or not Player.PlayerData.job then
+            return false
         end
+        
+        if Player.PlayerData.job.name == Config.HackerJobName then
+            if Config.JobRank > 0 then
+                return Player.PlayerData.job.grade and Player.PlayerData.job.grade.level >= Config.JobRank
+            else
+                return true
+            end
+        end
+        
+        return false
+    end, 'qbcore')
+    
+    if not jobCheckSuccess then
+        LogError('ERROR', 'Failed to check job data', source)
+        cb(false)
         return
     end
     
-    cb(false)
+    LogDebug('Job check result: ' .. tostring(hasJob), source)
+    cb(hasJob)
 end)
 
--- Command to give hacker laptop
+-- Enhanced admin command with comprehensive error handling
 QBCore.Commands.Add('givehackerlaptop', 'Give a hacker laptop to a player (Admin Only)', {
     {name = 'id', help = 'Player ID'}
 }, true, function(source, args)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(tonumber(args[1]))
     
-    if Player then
-        Player.Functions.AddItem(Config.LaptopItem, 1)
-        TriggerClientEvent('inventory:client:ItemBox', Player.PlayerData.source, QBCore.Shared.Items[Config.LaptopItem], 'add')
-        TriggerClientEvent('QBCore:Notify', src, 'You gave a hacker laptop to ' .. Player.PlayerData.charinfo.firstname, 'success')
-        TriggerClientEvent('QBCore:Notify', Player.PlayerData.source, 'You received a hacker laptop', 'success')
-        print('^2[qb-hackerjob] ^7Admin gave hacker laptop to player ID ' .. args[1])
-    else
-        TriggerClientEvent('QBCore:Notify', src, 'Player not found', 'error')
+    -- Validate source
+    if not src or type(src) ~= 'number' then
+        LogError('ERROR', 'Invalid source in givehackerlaptop command', src)
+        return
     end
+    
+    local AdminPlayer = SafeGetPlayer(src)
+    if not AdminPlayer then
+        LogError('WARN', 'Admin player not found', src)
+        return
+    end
+    
+    -- Server-side admin verification with error handling
+    local hasPermSuccess, hasPermission = SafeExecute(function()
+        return QBCore.Functions.HasPermission(src, 'admin')
+    end, 'qbcore')
+    
+    if not hasPermSuccess or not hasPermission then
+        LogError('WARN', 'Admin permission check failed or denied', src)
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    -- Validate arguments
+    if not args or not args[1] then
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Usage: /givehackerlaptop [player_id]', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    -- Validate player ID input
+    local targetId = tonumber(args[1])
+    if not targetId or targetId <= 0 or targetId > 1024 then
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Invalid player ID (must be 1-1024)', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    local Player = SafeGetPlayer(targetId)
+    if not Player then
+        LogError('WARN', 'Target player not found', targetId)
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Player not found', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    -- Safe item addition
+    local addItemSuccess = SafeExecute(function()
+        Player.Functions.AddItem(Config.LaptopItem, 1)
+        return true
+    end, 'qbcore')
+    
+    if not addItemSuccess then
+        LogError('ERROR', 'Failed to add laptop item to player inventory', targetId)
+        SafeExecute(function()
+            TriggerClientEvent('QBCore:Notify', src, 'Failed to give laptop - system error', 'error')
+        end, 'qbcore')
+        return
+    end
+    
+    -- Safe inventory notification
+    SafeExecute(function()
+        TriggerClientEvent('inventory:client:ItemBox', Player.PlayerData.source, QBCore.Shared.Items[Config.LaptopItem], 'add')
+    end, 'inventory')
+    
+    -- Safe success notifications
+    local playerName = 'Unknown'
+    if Player.PlayerData and Player.PlayerData.charinfo and Player.PlayerData.charinfo.firstname then
+        playerName = Player.PlayerData.charinfo.firstname
+    end
+    
+    SafeExecute(function()
+        TriggerClientEvent('QBCore:Notify', src, 'You gave a hacker laptop to ' .. playerName, 'success')
+    end, 'qbcore')
+    
+    SafeExecute(function()
+        TriggerClientEvent('QBCore:Notify', Player.PlayerData.source, 'You received a hacker laptop', 'success')
+    end, 'qbcore')
+    
+    LogInfo('Admin gave laptop to player', src .. ' -> ' .. targetId)
 end, 'admin')
 
--- Command to set job to hacker
+-- Command to set job to hacker (Admin Only)
 QBCore.Commands.Add('makehacker', 'Set player job to hacker (Admin Only)', {
     {name = 'id', help = 'Player ID'},
     {name = 'grade', help = 'Job Grade (0-4)'}
 }, true, function(source, args)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(tonumber(args[1]))
+    local AdminPlayer = QBCore.Functions.GetPlayer(src)
+    
+    -- Server-side admin verification
+    if not AdminPlayer or not QBCore.Functions.HasPermission(src, 'admin') then
+        TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
+        return
+    end
+    
+    -- Validate inputs
+    local targetId = tonumber(args[1])
+    if not targetId or targetId <= 0 then
+        TriggerClientEvent('QBCore:Notify', src, 'Invalid player ID', 'error')
+        return
+    end
+    
     local grade = tonumber(args[2]) or 0
+    if grade < 0 or grade > 4 then 
+        grade = math.max(0, math.min(4, grade)) -- Clamp between 0-4
+    end
     
-    if grade < 0 or grade > 4 then grade = 0 end
-    
+    local Player = QBCore.Functions.GetPlayer(targetId)
     if Player then
         Player.Functions.SetJob(Config.HackerJobName, grade)
         TriggerClientEvent('QBCore:Notify', src, 'You set ' .. Player.PlayerData.charinfo.firstname .. ' as a hacker (grade ' .. grade .. ')', 'success')
         TriggerClientEvent('QBCore:Notify', Player.PlayerData.source, 'You are now a hacker (grade ' .. grade .. ')', 'success')
-        print('^2[qb-hackerjob] ^7Admin set player ID ' .. args[1] .. ' to hacker job, grade ' .. grade)
+        -- Admin job assignment completed
     else
         TriggerClientEvent('QBCore:Notify', src, 'Player not found', 'error')
     end
 end, 'admin')
 
--- Debug log function
-function DebugLog(msg)
-    if GetConvar('qb_debug', 'false') == 'true' then
-        print('^3[qb-hackerjob] DEBUG: ^7' .. msg)
-    end
+-- Legacy logging function - now uses enhanced system
+local function LegacyLogInfo(msg)
+    LogInfo(msg, 'legacy')
 end
 
--- Export debug function
-exports('DebugLog', DebugLog)
-
--- Event to notify vehicle owner/driver
+-- Enhanced vehicle owner notification with error handling
 RegisterServerEvent('qb-hackerjob:server:notifyDriver')
 AddEventHandler('qb-hackerjob:server:notifyDriver', function(plate, message)
     local src = source
     
-    -- Normalize plate
+    -- Validate inputs
+    if not src or type(src) ~= 'number' then
+        LogError('ERROR', 'Invalid source in notifyDriver event', src)
+        return
+    end
+    
+    if not plate or type(plate) ~= 'string' or plate == '' then
+        LogError('ERROR', 'Invalid plate in notifyDriver event', src)
+        return
+    end
+    
+    if not message or type(message) ~= 'string' then
+        LogError('ERROR', 'Invalid message in notifyDriver event', src)
+        return
+    end
+    
+    -- Normalize and validate plate
     plate = plate:gsub("%s+", ""):upper()
+    if not plate:match("^[A-Z0-9]+$") or string.len(plate) < 2 or string.len(plate) > 8 then
+        LogError('ERROR', 'Invalid plate format in notifyDriver', plate)
+        return
+    end
     
-    -- Debug log
-    print("^3[qb-hackerjob] ^7Notifying driver of vehicle with plate: " .. plate .. " - Message: " .. message)
+    LogDebug('Notifying vehicle owner/driver', plate)
     
-    -- Find all players in vehicles
-    local players = QBCore.Functions.GetPlayers()
+    -- Safely get all players
+    local playersSuccess, players = SafeExecute(function()
+        return QBCore.Functions.GetPlayers()
+    end, 'qbcore')
+    
+    if not playersSuccess or not players then
+        LogError('ERROR', 'Failed to get players list for notification')
+        return
+    end
+    
+    -- Notify players in vehicles
     for _, playerId in ipairs(players) do
-        local targetPlayer = QBCore.Functions.GetPlayer(playerId)
-        
-        if targetPlayer then
-            -- Send the notification to check if they're in this vehicle
-            TriggerClientEvent('qb-hackerjob:client:checkVehiclePlate', playerId, plate, message)
+        if type(playerId) == 'number' then
+            local targetPlayer = SafeGetPlayer(playerId)
+            if targetPlayer then
+                SafeExecute(function()
+                    TriggerClientEvent('qb-hackerjob:client:checkVehiclePlate', playerId, plate, message)
+                end, 'qbcore')
+            end
         end
     end
     
-    -- Also check database to see if specific player owns this car
-    MySQL.query('SELECT * FROM player_vehicles WHERE plate = ?', {plate}, function(result)
+    -- Safe database query for vehicle owner
+    SafeDBQuery('SELECT citizenid FROM player_vehicles WHERE plate = ? LIMIT 1', {plate}, function(result)
         if result and #result > 0 then
             local ownerId = result[1].citizenid
             
-            -- Find the owner if they're online
-            for _, playerId in ipairs(players) do
-                local targetPlayer = QBCore.Functions.GetPlayer(playerId)
-                
-                if targetPlayer and targetPlayer.PlayerData.citizenid == ownerId then
-                    -- Notify the owner even if not in the vehicle
-                    TriggerClientEvent('QBCore:Notify', playerId, "Your vehicle with plate " .. plate .. " has been tampered with!", "error", 10000)
-                    break
+            if ownerId then
+                -- Find the owner if they're online
+                for _, playerId in ipairs(players) do
+                    if type(playerId) == 'number' then
+                        local targetPlayer = SafeGetPlayer(playerId)
+                        
+                        if targetPlayer and targetPlayer.PlayerData and targetPlayer.PlayerData.citizenid == ownerId then
+                            SafeExecute(function()
+                                TriggerClientEvent('QBCore:Notify', playerId, "Your vehicle with plate " .. plate .. " has been tampered with!", "error", 10000)
+                            end, 'qbcore')
+                            break
+                        end
+                    end
                 end
             end
         end
     end)
 end)
 
--- Callback to check if player can buy the laptop
+-- Enhanced laptop purchase callback with error handling
 QBCore.Functions.CreateCallback('qb-hackerjob:server:canBuyLaptop', function(source, cb)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    local price = Config.Vendor.price
     
+    -- Validate inputs
+    if not src or type(src) ~= 'number' then
+        LogError('ERROR', 'Invalid source in canBuyLaptop callback', src)
+        if cb then cb(false) end
+        return
+    end
+    
+    if not cb or type(cb) ~= 'function' then
+        LogError('ERROR', 'Invalid callback in canBuyLaptop', src)
+        return
+    end
+    
+    local Player = SafeGetPlayer(src)
     if not Player then
+        LogError('WARN', 'Player not found for laptop purchase', src)
         cb(false)
         return
     end
     
-    -- Check if player has enough money
-    if Player.PlayerData.money.cash >= price then
+    -- Validate config
+    if not Config.Vendor or not Config.Vendor.price or type(Config.Vendor.price) ~= 'number' then
+        LogError('ERROR', 'Invalid vendor price configuration')
+        cb(false)
+        return
+    end
+    
+    local price = Config.Vendor.price
+    
+    -- Safe money check and transaction
+    local transactionSuccess, result = SafeExecute(function()
+        if not Player.PlayerData or not Player.PlayerData.money then
+            return false, 'Invalid player money data'
+        end
+        
+        if Player.PlayerData.money.cash < price then
+            return false, 'Insufficient funds'
+        end
+        
         -- Remove cash
-        Player.Functions.RemoveMoney('cash', price, "bought-hacker-laptop")
+        local removeSuccess = Player.Functions.RemoveMoney('cash', price, "bought-hacker-laptop")
+        if not removeSuccess then
+            return false, 'Failed to remove money'
+        end
         
         -- Add laptop item
-        Player.Functions.AddItem(Config.LaptopItem, 1)
-        TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[Config.LaptopItem], 'add')
+        local addSuccess = Player.Functions.AddItem(Config.LaptopItem, 1)
+        if not addSuccess then
+            -- Refund money if item addition failed
+            Player.Functions.AddMoney('cash', price, "laptop-purchase-refund")
+            return false, 'Failed to add item'
+        end
         
-        -- Success callback
-        cb(true)
-    else
+        return true, 'Transaction successful'
+    end, 'qbcore')
+    
+    if not transactionSuccess then
+        LogError('WARN', 'Laptop purchase failed: ' .. tostring(result), src)
         cb(false)
+        return
     end
+    
+    -- Safe inventory notification
+    SafeExecute(function()
+        TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[Config.LaptopItem], 'add')
+    end, 'inventory')
+    
+    LogInfo('Player purchased laptop', src)
+    cb(true)
 end)
 
 -- Callback to check if player can buy a battery
@@ -353,17 +1065,17 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:hasItem', function(source, 
     local Player = QBCore.Functions.GetPlayer(src)
     
     if not Player then 
-        print("^1[qb-hackerjob] ^7hasItem callback: Player not found")
+        -- Player validation failed
         cb(false)
         return
     end
     
     local item = Player.Functions.GetItemByName(itemName)
     if item and item.amount > 0 then
-        print("^2[qb-hackerjob] ^7hasItem callback: Player has " .. item.amount .. " " .. itemName)
+        -- Item check successful
         cb(true)
     else
-        print("^1[qb-hackerjob] ^7hasItem callback: Player does not have " .. itemName)
+        -- Item not found
         cb(false)
     end
 end)
@@ -375,25 +1087,25 @@ AddEventHandler('qb-hackerjob:server:removeItem', function(itemName, amount)
     local Player = QBCore.Functions.GetPlayer(src)
     
     if not Player then 
-        print("^1[qb-hackerjob] ^7removeItem: Player not found")
+        -- Player validation failed
         return 
     end
     
     -- Make sure player actually has the item
     local hasItem = Player.Functions.GetItemByName(itemName)
     if not hasItem or hasItem.amount < amount then
-        print("^1[qb-hackerjob] ^7removeItem: Player doesn't have enough " .. itemName .. " (has: " .. (hasItem and hasItem.amount or 0) .. ", needs: " .. amount .. ")")
+        -- Insufficient item quantity
         TriggerClientEvent('QBCore:Notify', src, "You don't have this item!", "error")
         return
     end
     
-    print("^2[qb-hackerjob] ^7removeItem: Removing " .. amount .. " " .. itemName .. " from player " .. src)
+    -- Removing item from player
     
     -- Remove the item
     Player.Functions.RemoveItem(itemName, amount)
     TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[itemName], 'remove')
     
-    print("^2[qb-hackerjob] ^7removeItem: Successfully removed item")
+    -- Item removal successful
 end)
 
 -- Database setup for logs only (XP now uses metadata)
@@ -415,7 +1127,7 @@ Citizen.CreateThread(function()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]])
     
-    print('^2[qb-hackerjob] ^7Database tables initialized successfully')
+    -- Database initialization complete
 end)
 
 -- Server event to log hacking activities
@@ -444,9 +1156,8 @@ AddEventHandler('qb-hackerjob:server:logActivity', function(activity, target, su
     
     -- Log to console if enabled
     if Config.Logging.consoleLogs then
-        local status = success and "^2Success^7" or "^1Failed^7"
-        print(string.format("^3[qb-hackerjob:LOG] ^7Player: %s (%s) | Activity: %s | Target: %s | Status: %s", 
-            playerName, citizenid, activity, target or 'N/A', status))
+        LogInfo(string.format("Player: %s | Activity: %s | Target: %s | Status: %s", 
+            playerName, activity, target or 'N/A', success and "Success" or "Failed"))
     end
     
     -- Send to Discord webhook if enabled
@@ -498,6 +1209,14 @@ QBCore.Commands.Add('hackerlogs', 'View recent hacker activity logs (Admin Only)
     {name = 'count', help = 'Number of logs to retrieve (default: 10)'}
 }, true, function(source, args)
     local src = source
+    local AdminPlayer = QBCore.Functions.GetPlayer(src)
+    
+    -- Server-side admin verification
+    if not AdminPlayer or not QBCore.Functions.HasPermission(src, 'admin') then
+        TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
+        return
+    end
+    
     local count = tonumber(args[1]) or 10
     
     if count > 100 then count = 100 end -- Limit to prevent spam
@@ -505,19 +1224,19 @@ QBCore.Commands.Add('hackerlogs', 'View recent hacker activity logs (Admin Only)
     MySQL.query('SELECT hl.*, p.charinfo FROM hacker_logs hl LEFT JOIN players p ON hl.citizenid = p.citizenid ORDER BY hl.created_at DESC LIMIT ?', {count}, function(result)
         if result and #result > 0 then
             TriggerClientEvent('QBCore:Notify', src, "Displaying last " .. #result .. " hacker logs in console", "primary")
-            print("^3[qb-hackerjob] ^7========== RECENT HACKER LOGS ==========")
+            print("[qb-hackerjob] ========== RECENT HACKER LOGS ==========")
             
             for i, log in ipairs(result) do
                 local charInfo = log.charinfo and json.decode(log.charinfo) or {}
                 local playerName = (charInfo.firstname or "Unknown") .. " " .. (charInfo.lastname or "Player")
-                local status = log.success == 1 and "^2SUCCESS^7" or "^1FAILED^7"
+                local status = log.success == 1 and "SUCCESS" or "FAILED"
                 local timestamp = log.created_at
                 
-                print(string.format("^3[%d] ^7%s | %s (%s) | %s -> %s | %s | %s", 
+                print(string.format("[%d] %s | %s (%s) | %s -> %s | %s | %s", 
                     i, timestamp, playerName, log.citizenid, log.activity, log.target or "N/A", status, log.details or ""))
             end
             
-            print("^3[qb-hackerjob] ^7=============================================")
+            print("[qb-hackerjob] =============================================")
         else
             TriggerClientEvent('QBCore:Notify', src, "No hacker logs found", "error")
         end
@@ -582,13 +1301,13 @@ AddEventHandler('qb-hackerjob:server:saveBatteryLevel', function(batteryLevel)
     
     -- Validate battery level
     if type(batteryLevel) ~= 'number' or batteryLevel < 0 or batteryLevel > 100 then
-        print("^1[qb-hackerjob] ^7Invalid battery level received from player " .. src .. ": " .. tostring(batteryLevel))
+        -- Invalid battery level data
         return
     end
     
     -- Save to player metadata
     Player.Functions.SetMetaData('laptopBattery', batteryLevel)
-    print("^2[qb-hackerjob] ^7Saved battery level " .. batteryLevel .. "% for player " .. src)
+    -- Battery level saved
 end)
 
 -- ===== QBCORE METADATA-BASED XP SYSTEM =====
@@ -605,7 +1324,7 @@ local function InitializePlayerXP(Player)
         Player.Functions.SetMetaData('hackerLevel', 1)
     end
     
-    print("^2[qb-hackerjob] ^7Initialized XP metadata for player: " .. Player.PlayerData.citizenid)
+    -- XP metadata initialized
 end
 
 -- Function to calculate level from XP
@@ -626,17 +1345,17 @@ end
 -- Award XP for hacking activities using metadata
 RegisterServerEvent('hackerjob:awardXP')
 AddEventHandler('hackerjob:awardXP', function(activityType)
-    print("^2[hackerjob:awardXP] ^7Event triggered for activity: " .. tostring(activityType))
+    -- XP award event triggered
     
     if not Config.XPEnabled then 
-        print("^3[hackerjob:awardXP] ^7XP system disabled")
+        -- XP system disabled
         return 
     end
     
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     if not Player then 
-        print("^1[hackerjob:awardXP] ^7Player not found for source: " .. tostring(src))
+        -- Player validation failed for XP award
         return 
     end
     
@@ -644,10 +1363,10 @@ AddEventHandler('hackerjob:awardXP', function(activityType)
     InitializePlayerXP(Player)
     
     local xpAmount = Config.XPSettings[activityType] or 0
-    print("^2[hackerjob:awardXP] ^7XP amount for " .. activityType .. ": " .. xpAmount)
+    -- XP calculation complete
     
     if xpAmount <= 0 then 
-        print("^3[hackerjob:awardXP] ^7No XP configured for activity: " .. activityType)
+        -- No XP configuration found
         return 
     end
     
@@ -665,7 +1384,7 @@ AddEventHandler('hackerjob:awardXP', function(activityType)
     Player.Functions.SetMetaData('hackerXP', newXP)
     Player.Functions.SetMetaData('hackerLevel', newLevel)
     
-    print("^2[hackerjob:awardXP] ^7Updated XP: " .. currentXP .. " -> " .. newXP .. ", Level: " .. currentLevel .. " -> " .. newLevel)
+    -- XP update complete
     
     -- Notify player
     local leveledUp = newLevel > currentLevel
@@ -702,7 +1421,7 @@ QBCore.Functions.CreateCallback('hackerjob:getStats', function(source, cb)
     local nextLevelXP = GetNextLevelXP(level)
     local levelName = Config.LevelNames[level] or "Script Kiddie"
     
-    print("^2[hackerjob:getStats] ^7Retrieved stats - Level: " .. level .. ", XP: " .. xp .. ", Next: " .. nextLevelXP)
+    -- Stats retrieved successfully
     
     cb({
         level = level,
@@ -717,6 +1436,15 @@ QBCore.Commands.Add('givexp', 'Give XP to a player (Admin)', {
     {name = 'id', help = 'Player ID'},
     {name = 'amount', help = 'XP Amount'}
 }, true, function(source, args)
+    local src = source
+    local AdminPlayer = QBCore.Functions.GetPlayer(src)
+    
+    -- Server-side admin verification
+    if not AdminPlayer or not QBCore.Functions.HasPermission(src, 'admin') then
+        TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
+        return
+    end
+    
     local targetId = tonumber(args[1])
     local amount = tonumber(args[2])
     
@@ -766,4 +1494,4 @@ AddEventHandler('QBCore:Server:PlayerLoaded', function(Player)
     InitializePlayerXP(Player)
 end)
 
-print('^2[qb-hackerjob] ^7Server script loaded successfully')
+-- Server script initialized

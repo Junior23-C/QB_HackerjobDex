@@ -10,11 +10,35 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getPhoneData', function(sou
         return
     end
     
-    -- Validate phone number
-    if not phoneNumber or phoneNumber == '' then
+    -- Server-side job authorization check
+    if Config.RequireJob then
+        if Player.PlayerData.job.name ~= Config.HackerJobName then
+            cb(nil)
+            return
+        end
+        
+        if Config.JobRank > 0 and Player.PlayerData.job.grade.level < Config.JobRank then
+            cb(nil)
+            return
+        end
+    end
+    
+    -- Enhanced phone number validation
+    if not phoneNumber or type(phoneNumber) ~= 'string' then
         cb(nil)
         return
     end
+    
+    -- Remove non-digit characters and validate format
+    local cleanNumber = phoneNumber:gsub("%D", "")
+    
+    -- Validate phone number format (7-15 digits)
+    if not cleanNumber:match("^%d+$") or string.len(cleanNumber) < 7 or string.len(cleanNumber) > 15 then
+        cb(nil)
+        return
+    end
+    
+    phoneNumber = cleanNumber
     
     -- Check if player has the required level
     local citizenid = Player.PlayerData.citizenid
@@ -38,8 +62,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getPhoneData', function(sou
         end
     end
     
-    -- Format phone number for database query
-    phoneNumber = phoneNumber:gsub("%D", "") -- Remove non-digit characters
+    -- Phone number already validated and formatted above
     
     -- Check if this is a player's phone number
     MySQL.query('SELECT id, charinfo FROM players WHERE phone = ?', {phoneNumber}, function(players)

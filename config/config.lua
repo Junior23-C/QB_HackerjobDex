@@ -88,12 +88,32 @@ Config.RadioDecryptionDuration = 15000 -- Duration of decryption in ms
 Config.RadioDecryptionCooldown = 60000 -- Cooldown between decryption attempts in ms
 Config.RadioDecryptionChance = 70 -- Chance of successful decryption (0-100)
 
--- UI Settings
+-- UI Settings (Optimized for Performance)
 Config.UISettings = {
     theme = 'dark', -- 'dark' or 'light'
-    showAnimations = true, -- Enable/disable UI animations
-    soundEffects = false, -- Enable/disable sound effects
+    showAnimations = false, -- Disabled by default for better performance
+    soundEffects = false, -- Disabled for performance
     fontSize = 'normal', -- 'small', 'normal', 'large'
+    updateInterval = 500, -- UI update interval in ms (optimized for performance)
+    maxConcurrentAnimations = 3, -- Limit animations for performance
+}
+
+-- Production Environment Settings
+Config.Production = {
+    enabled = true, -- Set to false for development
+    debugMode = false, -- NEVER enable in production
+    performanceMonitoring = true, -- Enable performance tracking
+    errorReporting = true, -- Enable error reporting to logs
+    memoryOptimization = true, -- Enable memory optimization features
+    rateLimiting = true, -- Enable rate limiting for all operations
+}
+
+-- Configuration Validation
+Config.Validation = {
+    enabled = true, -- Enable config validation on startup
+    strict = true, -- Strict validation (fail if issues found)
+    checkDependencies = true, -- Validate all dependencies
+    validateDatabase = true, -- Test database connection on startup
 }
 
 -- Police Alert Settings

@@ -6,28 +6,40 @@ RegisterNetEvent('qb-hackerjob:server:removeGPSTracker', function()
     local Player = QBCore.Functions.GetPlayer(src)
     
     if not Player then 
-        print("^1[qb-hackerjob] ^7Error: Player not found when removing GPS tracker")
+        -- Player validation failed
         return 
+    end
+    
+    -- Server-side job authorization check
+    if Config.RequireJob then
+        if Player.PlayerData.job.name ~= Config.HackerJobName then
+            TriggerClientEvent('QBCore:Notify', src, "Access denied - insufficient permissions", "error")
+            return
+        end
+        
+        if Config.JobRank > 0 and Player.PlayerData.job.grade.level < Config.JobRank then
+            TriggerClientEvent('QBCore:Notify', src, "Access denied - insufficient job rank", "error")
+            return
+        end
     end
     
     -- Check if the item exists in shared items
     if not QBCore.Shared.Items[Config.GPSTrackerItem] then
-        print("^1[qb-hackerjob] ^7Error: GPS Tracker item '" .. Config.GPSTrackerItem .. "' not defined in shared items!")
+        -- GPS tracker item not found in shared items
         TriggerClientEvent('QBCore:Notify', src, "Error: GPS Tracker item not defined in server items", "error")
         return
     end
     
-    -- Debug print
-    print("^3[qb-hackerjob] ^7Attempting to remove GPS tracker from player ID: " .. src)
+    -- Removing GPS tracker from player
     
     -- Remove the GPS tracker item
     local hasItem = Player.Functions.GetItemByName(Config.GPSTrackerItem)
     if hasItem and hasItem.amount > 0 then
         Player.Functions.RemoveItem(Config.GPSTrackerItem, 1)
         TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[Config.GPSTrackerItem], "remove")
-        print("^2[qb-hackerjob] ^7Successfully removed GPS tracker item from player")
+        -- GPS tracker removal successful
     else
-        print("^1[qb-hackerjob] ^7Error: Player doesn't have GPS tracker item to remove")
+        -- Player doesn't have GPS tracker
         TriggerClientEvent('QBCore:Notify', src, "You don't have a GPS tracker", "error")
     end
 end)
@@ -42,7 +54,7 @@ QBCore.Commands.Add('checkgpstracker', 'Check if you have a GPS tracker', {}, fa
     -- Check if the item exists in shared items
     if not QBCore.Shared.Items[Config.GPSTrackerItem] then
         TriggerClientEvent('QBCore:Notify', src, "GPS Tracker item is not defined in shared items!", "error")
-        print("^1[qb-hackerjob] ^7Error: GPS Tracker item not defined in shared items!")
+        -- GPS tracker item not found in shared items
         return
     end
     
@@ -50,10 +62,10 @@ QBCore.Commands.Add('checkgpstracker', 'Check if you have a GPS tracker', {}, fa
     local hasItem = Player.Functions.GetItemByName(Config.GPSTrackerItem)
     if hasItem then
         TriggerClientEvent('QBCore:Notify', src, "You have " .. hasItem.amount .. " GPS tracker(s)", "success")
-        print("^2[qb-hackerjob] ^7Player has " .. hasItem.amount .. " GPS tracker(s)")
+        -- GPS tracker check successful
     else
         TriggerClientEvent('QBCore:Notify', src, "You don't have any GPS trackers", "error")
-        print("^3[qb-hackerjob] ^7Player doesn't have any GPS trackers")
+        -- No GPS trackers found
     end
 end)
 
@@ -101,7 +113,7 @@ AddEventHandler('qb-hackerjob:server:saveDisabledBrakes', function(plate, brakeF
         timeDisabled = os.time()
     }
     
-    print("^3[qb-hackerjob] ^7Vehicle brakes disabled state saved for plate: " .. plate)
+    -- Brake disable state saved
 end)
 
 -- Register event to remove disabled brakes state
@@ -109,7 +121,7 @@ RegisterNetEvent('qb-hackerjob:server:removeDisabledBrakes')
 AddEventHandler('qb-hackerjob:server:removeDisabledBrakes', function(plate)
     if disabledBrakesVehicles[plate] then
         disabledBrakesVehicles[plate] = nil
-        print("^2[qb-hackerjob] ^7Vehicle brakes disabled state removed for plate: " .. plate)
+        -- Brake disable state removed
     end
 end)
 
@@ -136,14 +148,27 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:checkAndRemoveGPS', functio
     local success = false
     
     if not Player then 
-        print("^1[qb-hackerjob] ^7Error: Player not found when checking GPS tracker")
+        -- Player validation failed
         cb(false)
         return 
     end
     
+    -- Server-side job authorization check
+    if Config.RequireJob then
+        if Player.PlayerData.job.name ~= Config.HackerJobName then
+            cb(false)
+            return
+        end
+        
+        if Config.JobRank > 0 and Player.PlayerData.job.grade.level < Config.JobRank then
+            cb(false)
+            return
+        end
+    end
+    
     -- Check if the item exists in shared items
     if not QBCore.Shared.Items[Config.GPSTrackerItem] then
-        print("^1[qb-hackerjob] ^7Error: GPS Tracker item '" .. Config.GPSTrackerItem .. "' not defined in shared items!")
+        -- GPS tracker item not found in shared items
         TriggerClientEvent('QBCore:Notify', src, "Error: GPS Tracker item not defined in server items", "error")
         cb(false)
         return
@@ -158,7 +183,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:checkAndRemoveGPS', functio
         print("^2[qb-hackerjob] ^7Successfully removed GPS tracker item from player ID: " .. src)
         success = true
     else
-        print("^1[qb-hackerjob] ^7Error: Player " .. src .. " doesn't have GPS tracker item")
+        -- Player doesn't have GPS tracker
         TriggerClientEvent('QBCore:Notify', src, "You don't have a GPS tracker", "error")
     end
     

@@ -25,9 +25,179 @@
     and proper charging behavior when using the laptop's features.
 ]]
 
--- QBCore setup and callback handling
+-- Enhanced QBCore setup and callback handling with error handling
 local QBCore = exports['qb-core']:GetCoreObject()
 local laptopOpen = false
+
+-- Error handling configuration
+local ErrorConfig = {
+    maxRetries = 3,
+    retryDelay = 500,
+    networkTimeout = 10000,
+    uiTimeout = 5000,
+    logLevel = 'INFO'
+}
+
+-- NUI health tracking
+local NUIHealth = {
+    lastResponse = 0,
+    failedCallbacks = 0,
+    connected = true
+}
+
+-- Enhanced logging functions
+local function SafeLogError(message, context)
+    local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+    local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+    print('^1[qb-hackerjob:laptop:ERROR] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+end
+
+local function SafeLogInfo(message, context)
+    if ErrorConfig.logLevel == 'DEBUG' or ErrorConfig.logLevel == 'INFO' then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+        print('^2[qb-hackerjob:laptop:INFO] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+    end
+end
+
+local function SafeLogDebug(message, context)
+    if ErrorConfig.logLevel == 'DEBUG' then
+        local timestamp = os.date('%Y-%m-%d %H:%M:%S')
+        local contextStr = context and (' [' .. tostring(context) .. ']') or ''
+        print('^3[qb-hackerjob:laptop:DEBUG] ^7' .. string.format('[%s] %s%s', timestamp, message, contextStr))
+    end
+end
+
+-- Safe NUI message wrapper
+local function SafeSendNUIMessage(data, retries)
+    retries = retries or ErrorConfig.maxRetries
+    
+    if not data or type(data) ~= 'table' then
+        SafeLogError('Invalid data provided to SafeSendNUIMessage')
+        return false
+    end
+    
+    local function sendMessage(attempt)
+        local success, result = pcall(function()
+            SendNUIMessage(data)
+            NUIHealth.lastResponse = GetGameTimer()
+            NUIHealth.connected = true
+            return true
+        end)
+        
+        if success then
+            SafeLogDebug('NUI message sent successfully: ' .. (data.action or 'unknown'))
+            return true
+        else
+            SafeLogError('NUI message failed on attempt ' .. attempt .. '/' .. retries .. ': ' .. tostring(result))
+            if attempt < retries then
+                Citizen.Wait(ErrorConfig.retryDelay)
+                return sendMessage(attempt + 1)
+            else
+                NUIHealth.failedCallbacks = NUIHealth.failedCallbacks + 1
+                SafeLogError('NUI message failed after all retries')
+                return false
+            end
+        end
+    end
+    
+    return sendMessage(1)
+end
+
+-- Safe callback wrapper
+local function SafeCallback(callbackName, data, callback, retries)
+    retries = retries or ErrorConfig.maxRetries
+    
+    if not callbackName or type(callbackName) ~= 'string' then
+        SafeLogError('Invalid callback name provided to SafeCallback')
+        if callback then callback(nil) end
+        return
+    end
+    
+    if not callback or type(callback) ~= 'function' then
+        SafeLogError('Invalid callback function provided to SafeCallback')
+        return
+    end
+    
+    local function executeCallback(attempt)
+        local timeoutTimer = nil
+        local callbackExecuted = false
+        
+        -- Set up timeout
+        timeoutTimer = SetTimeout(ErrorConfig.networkTimeout, function()
+            if not callbackExecuted then
+                callbackExecuted = true
+                SafeLogError('Callback timeout: ' .. callbackName)
+                if attempt < retries then
+                    Citizen.Wait(ErrorConfig.retryDelay * attempt)
+                    executeCallback(attempt + 1)
+                else
+                    callback(nil)
+                end
+            end
+        end)
+        
+        local success, result = pcall(function()
+            QBCore.Functions.TriggerCallback(callbackName, function(callbackResult)
+                if timeoutTimer then
+                    ClearTimeout(timeoutTimer)
+                end
+                
+                if not callbackExecuted then
+                    callbackExecuted = true
+                    
+                    if callbackResult ~= nil then
+                        SafeLogDebug('Callback successful: ' .. callbackName)
+                        callback(callbackResult)
+                    else
+                        SafeLogError('Callback returned nil on attempt ' .. attempt .. '/' .. retries .. ': ' .. callbackName)
+                        if attempt < retries then
+                            Citizen.Wait(ErrorConfig.retryDelay * attempt)
+                            executeCallback(attempt + 1)
+                        else
+                            callback(nil)
+                        end
+                    end
+                end
+            end, data)
+        end)
+        
+        if not success then
+            if timeoutTimer then
+                ClearTimeout(timeoutTimer)
+            end
+            
+            if not callbackExecuted then
+                callbackExecuted = true
+                SafeLogError('Error executing callback: ' .. callbackName .. ' - ' .. tostring(result))
+                if attempt < retries then
+                    Citizen.Wait(ErrorConfig.retryDelay * attempt)
+                    executeCallback(attempt + 1)
+                else
+                    callback(nil)
+                end
+            end
+        end
+    end
+    
+    executeCallback(1)
+end
+
+-- Safe notification
+local function SafeNotify(message, type, duration)
+    if not message then
+        SafeLogError('No message provided to SafeNotify')
+        return
+    end
+    
+    local success = pcall(function()
+        QBCore.Functions.Notify(message, type or 'info', duration or 5000)
+    end)
+    
+    if not success then
+        SafeLogError('Failed to show notification: ' .. tostring(message))
+    end
+end
 
 -- Battery variables
 local batteryLevel = 100
@@ -40,209 +210,261 @@ local laptopLastUsed = 0 -- timestamp of last laptop interaction
 local lastChargerToggle = 0
 local chargerToggleCooldown = 5000 -- 5 second cooldown between charger toggles
 
--- Function to check player job
+-- Enhanced function to check player job with error handling
 local function hasRequiredJob()
-    if not Config.RequireJob then return true end
-    
-    local Player = QBCore.Functions.GetPlayerData()
-    if not Player then 
-        print("^1[qb-hackerjob] ^7Player data not found")
-        return false 
+    if not Config or not Config.RequireJob then 
+        SafeLogDebug('Job requirement disabled')
+        return true 
     end
     
-    if Player.job and Player.job.name == Config.HackerJobName then
-        if Config.JobRank > 0 then
-            return Player.job.grade.level >= Config.JobRank
+    local jobCheckSuccess, hasJob, jobError = pcall(function()
+        local Player = QBCore.Functions.GetPlayerData()
+        if not Player then 
+            return false, "Player data not found"
         end
-        return true
+        
+        if not Player.job then
+            return false, "No job data in player data"
+        end
+        
+        if Player.job.name == Config.HackerJobName then
+            if Config.JobRank > 0 then
+                if not Player.job.grade or not Player.job.grade.level then
+                    return false, "Missing job grade data"
+                end
+                return Player.job.grade.level >= Config.JobRank, "Job rank check passed"
+            end
+            return true, "Job check passed"
+        end
+        
+        return false, "Job requirement not met: " .. (Player.job.name or "unknown") .. " vs required: " .. Config.HackerJobName
+    end)
+    
+    if not jobCheckSuccess then
+        SafeLogError('Job check failed: ' .. tostring(hasJob))
+        return false
     end
     
-    print("^1[qb-hackerjob] ^7Job requirement not met: " .. (Player.job and Player.job.name or "unknown") .. " vs required: " .. Config.HackerJobName)
-    return false
+    if not hasJob then
+        SafeLogError('Job requirement not met: ' .. tostring(jobError))
+    else
+        SafeLogDebug('Job check passed: ' .. tostring(jobError))
+    end
+    
+    return hasJob
 end
 
--- Function to handle battery drain
+-- Enhanced function to handle battery drain with error handling
 local function drainBattery(operationType)
-    if not Config.Battery.enabled then return end
-    
-    -- Determine drain amount based on operation type
-    local amount = Config.Battery.drainRate -- Default drain rate
-    
-    if operationType and Config.Battery.operationDrainRates[operationType] then
-        amount = Config.Battery.operationDrainRates[operationType]
+    if not Config or not Config.Battery or not Config.Battery.enabled then 
+        SafeLogDebug('Battery system disabled')
+        return 
     end
     
-    -- Apply drain
-    local oldLevel = batteryLevel
-    batteryLevel = math.max(0, batteryLevel - amount)
-    
-    -- Round battery level to 1 decimal place for cleaner display
-    batteryLevel = math.floor(batteryLevel * 10) / 10
-    
-    print("^2[qb-hackerjob] ^7Battery drained by " .. amount .. "% (" .. operationType .. ") from " .. oldLevel .. "% to " .. batteryLevel .. "%")
-    
-    -- Update UI with new battery level
-    if laptopOpen then
-        SendNUIMessage({
-            action = "updateBattery",
-            level = batteryLevel,
-            charging = isCharging -- Always send charging state with battery updates
-        })
-    end
-    
-    -- Update last used timestamp
-    laptopLastUsed = GetGameTimer()
-    
-    -- Display rounded battery level in notifications
-    local displayLevel = math.floor(batteryLevel + 0.5)
-    
-    -- Battery warnings based on thresholds
-    if oldLevel > Config.Battery.lowBatteryThreshold and batteryLevel <= Config.Battery.lowBatteryThreshold then
-        QBCore.Functions.Notify("Warning: Battery Low (" .. displayLevel .. "%)", "error", 5000)
-    elseif oldLevel > Config.Battery.criticalBatteryThreshold and batteryLevel <= Config.Battery.criticalBatteryThreshold then
-        QBCore.Functions.Notify("Warning: Battery Critical (" .. displayLevel .. "%)", "error", 5000)
-    elseif batteryLevel <= 0 then
-        QBCore.Functions.Notify("Battery depleted. Laptop shutting down.", "error", 5000)
-        if laptopOpen then
-            CloseLaptop()
+    local drainSuccess = pcall(function()
+        -- Validate operation type
+        if not operationType or type(operationType) ~= 'string' then
+            SafeLogError('Invalid operation type for battery drain: ' .. tostring(operationType))
+            operationType = 'default'
         end
-    end
+        
+        -- Determine drain amount based on operation type
+        local amount = Config.Battery.drainRate or 0.5 -- Default drain rate
+        
+        if Config.Battery.operationDrainRates and Config.Battery.operationDrainRates[operationType] then
+            amount = Config.Battery.operationDrainRates[operationType]
+        end
+        
+        -- Validate amount
+        if type(amount) ~= 'number' or amount < 0 then
+            SafeLogError('Invalid battery drain amount: ' .. tostring(amount))
+            amount = 0.5
+        end
+        
+        -- Apply drain
+        local oldLevel = batteryLevel
+        batteryLevel = math.max(0, batteryLevel - amount)
+        
+        -- Round battery level to 1 decimal place for cleaner display
+        batteryLevel = math.floor(batteryLevel * 10) / 10
+        
+        SafeLogDebug('Battery drained by ' .. amount .. '% (' .. operationType .. ') from ' .. oldLevel .. '% to ' .. batteryLevel .. '%')
+        
+        -- Safe UI update
+        if laptopOpen then
+            SafeSendNUIMessage({
+                action = "updateBattery",
+                level = batteryLevel,
+                charging = isCharging
+            })
+        end
+        
+        -- Update last used timestamp
+        laptopLastUsed = GetGameTimer()
+        
+        -- Display rounded battery level in notifications
+        local displayLevel = math.floor(batteryLevel + 0.5)
+        
+        -- Battery warnings based on thresholds
+        local lowThreshold = Config.Battery.lowBatteryThreshold or 20
+        local criticalThreshold = Config.Battery.criticalBatteryThreshold or 10
+        
+        if oldLevel > lowThreshold and batteryLevel <= lowThreshold then
+            SafeNotify("Warning: Battery Low (" .. displayLevel .. "%)", "error", 5000)
+        elseif oldLevel > criticalThreshold and batteryLevel <= criticalThreshold then
+            SafeNotify("Warning: Battery Critical (" .. displayLevel .. "%)", "error", 5000)
+        elseif batteryLevel <= 0 then
+            SafeNotify("Battery depleted. Laptop shutting down.", "error", 5000)
+            if laptopOpen then
+                pcall(CloseLaptop)
+            end
+        end
+        
+        -- If charging is active, immediately add a charge to compensate for drain
+        if isCharging and chargeTimer then
+            pcall(function()
+                ClearTimeout(chargeTimer)
+                chargeTimer = SetTimeout(Config.Battery.chargeInterval or 30000, chargeBattery)
+            end)
+        end
+    end)
     
-    -- If charging is active, immediately add a charge to compensate for drain
-    -- This prevents operations from "disconnecting" the charger
-    if isCharging and chargeTimer then
-        ClearTimeout(chargeTimer) -- Clear existing timer
-        chargeTimer = SetTimeout(Config.Battery.chargeInterval, chargeBattery) -- Set new timer
+    if not drainSuccess then
+        SafeLogError('Battery drain operation failed for operation: ' .. tostring(operationType))
     end
 end
 
--- Function to handle battery charging
+-- Optimized event-driven battery charging system
+local chargingNotificationThresholds = {20, 50, 80, 100}
+local lastNotificationThreshold = 0
+
 local function chargeBattery()
     if not Config.Battery.enabled or not isCharging then return end
-    
-    -- Debug print
-    print("^2[qb-hackerjob] ^7chargeBattery called. Current level: " .. batteryLevel)
     
     if batteryLevel >= Config.Battery.maxCharge then
         isCharging = false
         print("^2[qb-hackerjob] ^7Battery fully charged")
         QBCore.Functions.Notify("Battery fully charged", "success")
         
-        -- Update UI
+        -- Single UI update when charging complete
         if laptopOpen then
             SendNUIMessage({
                 action = "updateBattery",
-                level = math.floor(batteryLevel * 10) / 10, -- Round to 1 decimal place
+                level = math.floor(batteryLevel * 10) / 10,
                 charging = false
             })
         end
+        chargeTimer = nil
         return
     end
     
     -- Determine charge rate based on current battery level (adaptive charging)
-    local chargeRate = Config.Battery.chargeRate -- Default charge rate
-    
-    -- Fast charging when battery is low (below 30%)
+    local chargeRate = Config.Battery.chargeRate
     if batteryLevel < 30 then
         chargeRate = Config.Battery.fastChargeRate
-        print("^2[qb-hackerjob] ^7Fast charging applied at " .. chargeRate .. "% per tick")
-    -- Slow/trickle charging when battery is high (above 80%)
     elseif batteryLevel > 80 then
         chargeRate = Config.Battery.slowChargeRate
-        print("^2[qb-hackerjob] ^7Slow charging applied at " .. chargeRate .. "% per tick")
     end
     
     -- Charge the battery
     local oldLevel = batteryLevel
     batteryLevel = math.min(Config.Battery.maxCharge, batteryLevel + chargeRate)
-    
-    -- Round battery level to 1 decimal place
     batteryLevel = math.floor(batteryLevel * 10) / 10
     
-    print("^2[qb-hackerjob] ^7Battery charged from " .. oldLevel .. "% to " .. batteryLevel .. "%")
-    
-    -- Update UI with new battery level
-    if laptopOpen then
-        SendNUIMessage({
-            action = "updateBattery",
-            level = batteryLevel,
-            charging = isCharging
-        })
-    end
-    
-    -- Display rounded battery level in notifications
-    local displayLevel = math.floor(batteryLevel + 0.5)
-    
-    -- Notifications at certain levels
-    if oldLevel < 20 and batteryLevel >= 20 then
-        QBCore.Functions.Notify("Battery charging: 20%", "primary")
-    elseif oldLevel < 50 and batteryLevel >= 50 then
-        QBCore.Functions.Notify("Battery half charged: 50%", "primary")
-    elseif oldLevel < 80 and batteryLevel >= 80 then
-        QBCore.Functions.Notify("Battery nearly full: 80%", "primary")
-    elseif oldLevel < 100 and batteryLevel >= 100 then
-        QBCore.Functions.Notify("Battery fully charged: 100%", "success")
-        isCharging = false
-    end
-    
-    -- Schedule next charge if not full and still charging
-    if batteryLevel < Config.Battery.maxCharge and isCharging then
-        if chargeTimer then
-            ClearTimeout(chargeTimer)
+    -- Efficient notification system - only notify at specific thresholds
+    for _, threshold in ipairs(chargingNotificationThresholds) do
+        if oldLevel < threshold and batteryLevel >= threshold and lastNotificationThreshold < threshold then
+            if threshold == 100 then
+                QBCore.Functions.Notify("Battery fully charged: 100%", "success")
+                isCharging = false
+            elseif threshold == 80 then
+                QBCore.Functions.Notify("Battery nearly full: 80%", "primary")
+            elseif threshold == 50 then
+                QBCore.Functions.Notify("Battery half charged: 50%", "primary")
+            elseif threshold == 20 then
+                QBCore.Functions.Notify("Battery charging: 20%", "primary")
+            end
+            lastNotificationThreshold = threshold
+            break
         end
-        chargeTimer = SetTimeout(Config.Battery.chargeInterval, chargeBattery)
-        print("^2[qb-hackerjob] ^7Scheduled next charge in " .. Config.Battery.chargeInterval/1000 .. " seconds")
-    else
-        isCharging = false
-        chargeTimer = nil
-    end
-end
-
--- Function to handle idle battery drain
-local function startIdleDrain()
-    -- Clear any existing timer
-    if idleDrainTimer then
-        ClearTimeout(idleDrainTimer)
-        idleDrainTimer = nil
     end
     
-    -- Only drain battery if laptop is open
-    if not laptopOpen then return end
-    
-    idleDrainTimer = SetTimeout(60000, function() -- 1 minute intervals
-        local currentTime = GetGameTimer()
-        local idleTime = currentTime - laptopLastUsed
-        
-        -- If idle for more than 1 minute, drain battery
-        if idleTime > 60000 and batteryLevel > 0 and not isCharging then
-            local oldLevel = batteryLevel
-            batteryLevel = math.max(0, batteryLevel - Config.Battery.idleDrainRate)
-            
-            -- Round battery level
-            batteryLevel = math.floor(batteryLevel * 10) / 10
-            
-            print("^2[qb-hackerjob] ^7Idle battery drain: " .. oldLevel .. "% to " .. batteryLevel .. "%")
-            
-            -- Update UI with new battery level
+    -- Batch UI update - only update every few charge cycles to reduce UI overhead
+    if math.floor(oldLevel) ~= math.floor(batteryLevel) or batteryLevel >= 100 then
+        if laptopOpen then
             SendNUIMessage({
                 action = "updateBattery",
                 level = batteryLevel,
                 charging = isCharging
             })
+        end
+    end
+    
+    -- Continue charging if needed
+    if batteryLevel < Config.Battery.maxCharge and isCharging then
+        if chargeTimer then
+            ClearTimeout(chargeTimer)
+        end
+        chargeTimer = SetTimeout(Config.Battery.chargeInterval, chargeBattery)
+    else
+        isCharging = false
+        chargeTimer = nil
+        lastNotificationThreshold = 0 -- Reset for next charging session
+    end
+end
+
+-- Optimized idle battery drain with reduced polling frequency
+local function startIdleDrain()
+    if idleDrainTimer then
+        ClearTimeout(idleDrainTimer)
+        idleDrainTimer = nil
+    end
+    
+    if not laptopOpen then return end
+    
+    idleDrainTimer = SetTimeout(90000, function() -- Reduced frequency: 1.5 minute intervals
+        local currentTime = GetGameTimer()
+        local idleTime = currentTime - laptopLastUsed
+        
+        -- Only drain if idle for more than 90 seconds and not charging
+        if idleTime > 90000 and batteryLevel > 0 and not isCharging then
+            local oldLevel = batteryLevel
+            batteryLevel = math.max(0, batteryLevel - Config.Battery.idleDrainRate)
+            batteryLevel = math.floor(batteryLevel * 10) / 10
             
-            -- Check for low battery or critical battery
-            if oldLevel > Config.Battery.lowBatteryThreshold and batteryLevel <= Config.Battery.lowBatteryThreshold then
-                QBCore.Functions.Notify("Warning: Battery Low (" .. batteryLevel .. "%)", "error", 5000)
-            elseif oldLevel > Config.Battery.criticalBatteryThreshold and batteryLevel <= Config.Battery.criticalBatteryThreshold then
-                QBCore.Functions.Notify("Warning: Battery Critical (" .. batteryLevel .. "%)", "error", 5000)
+            -- Efficient notification system - only notify on threshold changes
+            local displayLevel = math.floor(batteryLevel + 0.5)
+            local shouldNotify = false
+            local notificationMessage = ""
+            local notificationType = ""
+            
+            if oldLevel > Config.Battery.criticalBatteryThreshold and batteryLevel <= Config.Battery.criticalBatteryThreshold then
+                shouldNotify = true
+                notificationMessage = "Warning: Battery Critical (" .. displayLevel .. "%)"
+                notificationType = "error"
+            elseif oldLevel > Config.Battery.lowBatteryThreshold and batteryLevel <= Config.Battery.lowBatteryThreshold then
+                shouldNotify = true
+                notificationMessage = "Warning: Battery Low (" .. displayLevel .. "%)"
+                notificationType = "error"
             elseif batteryLevel <= 0 then
                 QBCore.Functions.Notify("Battery depleted. Laptop shutting down.", "error", 5000)
                 CloseLaptop()
                 return
             end
+            
+            -- Batch UI update with notification
+            if shouldNotify then
+                QBCore.Functions.Notify(notificationMessage, notificationType, 5000)
+            end
+            
+            SendNUIMessage({
+                action = "updateBattery",
+                level = batteryLevel,
+                charging = isCharging
+            })
         end
         
-        -- Restart the timer
+        -- Continue monitoring
         startIdleDrain()
     end)
 end
@@ -349,44 +571,90 @@ local function toggleCharging()
     return true
 end
 
--- Function to open laptop
+-- Enhanced function to open laptop with comprehensive error handling
 function OpenHackerLaptop(xpData)
-    print("^2[qb-hackerjob] ^7Attempting to open hacker laptop")
+    SafeLogInfo('Attempting to open hacker laptop', xpData and 'with XP data' or 'without XP data')
     
     if laptopOpen then 
-        print("^3[qb-hackerjob] ^7Laptop already open")
+        SafeLogInfo('Laptop already open')
         return 
     end
     
-    -- Check for required job
-    if not hasRequiredJob() then
-        QBCore.Functions.Notify("You are not a hacker", "error")
+    -- Safe job check
+    local jobCheckSuccess, hasJob = pcall(hasRequiredJob)
+    if not jobCheckSuccess then
+        SafeLogError('Job check failed during laptop open')
+        SafeNotify("System error during authorization check", "error")
         return
     end
     
-    -- Check battery level
-    if Config.Battery.enabled and batteryLevel <= 0 then
-        QBCore.Functions.Notify("Laptop battery is depleted. Replace the battery or charge it.", "error")
+    if not hasJob then
+        SafeNotify("You are not authorized to use this device", "error")
         return
     end
     
-    -- Animation stuff - load animation in background to prevent waiting
-    local ped = PlayerPedId()
-    local animDict = "amb@world_human_seat_wall_tablet@female@base"
-    local animName = "base"
+    -- Safe battery check
+    if Config and Config.Battery and Config.Battery.enabled then
+        if type(batteryLevel) ~= 'number' or batteryLevel <= 0 then
+            SafeNotify("Laptop battery is depleted. Replace the battery or charge it.", "error")
+            return
+        end
+    end
     
-    -- Request animation without blocking
-    RequestAnimDict(animDict)
+    SafeLogDebug('Pre-flight checks passed, proceeding with laptop open')
     
-    -- Create laptop prop immediately without waiting for anim
-    local tabletProp = CreateObject(`prop_cs_tablet`, 0.0, 0.0, 0.0, true, true, false)
-    local tabletBone = GetPedBoneIndex(ped, 28422)
+    -- Safe animation and prop setup
+    local animationSuccess = pcall(function()
+        local ped = PlayerPedId()
+        if not ped or ped == 0 then
+            SafeLogError('Invalid player ped for laptop animation')
+            return
+        end
+        
+        local animDict = "amb@world_human_seat_wall_tablet@female@base"
+        local animName = "base"
+        
+        -- Request animation without blocking
+        RequestAnimDict(animDict)
+        
+        -- Create laptop prop with error handling
+        local tabletProp = CreateObject(`prop_cs_tablet`, 0.0, 0.0, 0.0, true, true, false)
+        if not tabletProp or tabletProp == 0 then
+            SafeLogError('Failed to create tablet prop')
+            return
+        end
+        
+        local tabletBone = GetPedBoneIndex(ped, 28422)
+        if tabletBone == -1 then
+            SafeLogError('Failed to get tablet bone index')
+            DeleteEntity(tabletProp)
+            return
+        end
+        
+        AttachEntityToEntity(tabletProp, ped, tabletBone, 0.12, 0.0, -0.05, 10.0, 0.0, 0.0, true, true, false, true, 1, true)
+        currentTabletProp = tabletProp
+        
+        SafeLogDebug('Tablet prop created and attached successfully')
+    end)
     
-    AttachEntityToEntity(tabletProp, ped, tabletBone, 0.12, 0.0, -0.05, 10.0, 0.0, 0.0, true, true, false, true, 1, true)
+    if not animationSuccess then
+        SafeLogError('Animation setup failed - continuing without animation')
+    end
     
-    -- Set NUI focus immediately for faster UI response
-    laptopOpen = true
-    SetNuiFocus(true, true)
+    -- Safe NUI focus setup
+    local nuiFocusSuccess = pcall(function()
+        laptopOpen = true
+        SafeLogDebug('Setting NUI focus')
+        SetNuiFocus(true, true)
+        SafeLogDebug('NUI focus set successfully')
+    end)
+    
+    if not nuiFocusSuccess then
+        SafeLogError('Failed to set NUI focus')
+        laptopOpen = false
+        SafeNotify("Error opening laptop interface", "error")
+        return
+    end
     
     -- Drain battery for turning on
     drainBattery("scanning")
@@ -426,7 +694,9 @@ function OpenHackerLaptop(xpData)
         message.features = {}
     end
     
+    print("^2[qb-hackerjob] ^7Sending NUI message:", json.encode(message))
     SendNUIMessage(message)
+    print("^2[qb-hackerjob] ^7NUI message sent")
     
     -- Register storage values for the laptop session
     SetNuiFocusKeepInput(false)
@@ -497,8 +767,20 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
         
         -- Get updated hacker stats before opening NUI (use both methods for reliability)
         QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
+            print("^2[qb-hackerjob] ^7Server callback returned stats:", json.encode(stats))
+            
             -- Also get local metadata as fallback
-            local localStats = exports['qb-hackerjob']:GetPlayerXPData()
+            local localStats = nil
+            local success, err = pcall(function()
+                localStats = exports['qb-hackerjob']:GetPlayerXPData()
+            end)
+            
+            if not success then
+                print("^1[qb-hackerjob] ^7Error getting local stats: " .. tostring(err))
+                localStats = {level = 1, xp = 0, nextLevelXP = 100, levelName = "Script Kiddie"}
+            end
+            
+            print("^2[qb-hackerjob] ^7Local stats:", json.encode(localStats))
             
             -- Use server stats if available, otherwise use local
             local finalStats = stats
@@ -507,6 +789,7 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
                 finalStats = localStats
             end
             
+            print("^2[qb-hackerjob] ^7Final stats for laptop:", json.encode(finalStats))
             local level, xp, nextLevelXP = finalStats.level, finalStats.xp, finalStats.nextLevelXP
             -- Battery check
             if Config.Battery.enabled then
@@ -521,7 +804,17 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             end
             
             -- Open laptop with XP data
-            OpenHackerLaptop(finalStats)
+            print("^2[qb-hackerjob] ^7About to call OpenHackerLaptop")
+            local success, err = pcall(function()
+                OpenHackerLaptop(finalStats)
+            end)
+            
+            if not success then
+                print("^1[qb-hackerjob] ^7Error opening laptop: " .. tostring(err))
+                QBCore.Functions.Notify("Error opening laptop", "error")
+            else
+                print("^2[qb-hackerjob] ^7OpenHackerLaptop called successfully")
+            end
         end)
     end)
 end)
@@ -832,11 +1125,18 @@ AddEventHandler('onClientResourceStart', function(resourceName)
         
         loadBatteryLevel()
         
-        -- Set up a timer to periodically save battery level
+        -- Optimized battery save timer - less frequent saves, event-driven
+        local lastSaveTime = 0
+        local saveInterval = 300000 -- Save every 5 minutes instead of 1 minute
+        
         Citizen.CreateThread(function()
             while true do
-                Citizen.Wait(60000) -- Save every 1 minute
-                saveBatteryLevel()
+                local currentTime = GetGameTimer()
+                if currentTime - lastSaveTime >= saveInterval then
+                    saveBatteryLevel()
+                    lastSaveTime = currentTime
+                end
+                Citizen.Wait(30000) -- Check every 30 seconds instead of constant loop
             end
         end)
     end)

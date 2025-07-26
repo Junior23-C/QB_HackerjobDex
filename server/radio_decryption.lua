@@ -24,9 +24,22 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:interceptRadio', function(s
         return
     end
     
-    -- Check for hacker job if required
-    if Config.RequireJob and Player.PlayerData.job.name ~= Config.HackerJobName then
-        cb({ success = false, message = "Unauthorized access" })
+    -- Server-side job authorization check
+    if Config.RequireJob then
+        if Player.PlayerData.job.name ~= Config.HackerJobName then
+            cb({ success = false, message = "Access denied - insufficient permissions" })
+            return
+        end
+        
+        if Config.JobRank > 0 and Player.PlayerData.job.grade.level < Config.JobRank then
+            cb({ success = false, message = "Access denied - insufficient job rank" })
+            return
+        end
+    end
+    
+    -- Validate frequency input
+    if not frequency or type(frequency) ~= 'string' or frequency == '' then
+        cb({ success = false, message = "Invalid frequency format" })
         return
     end
     
@@ -51,9 +64,7 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:interceptRadio', function(s
             timestamp = os.time()
         }
         
-        -- Log the successful interception
-        print(string.format("[qb-hackerjob] Player %s (%s) successfully intercepted radio frequency %s", 
-            GetPlayerName(src), Player.PlayerData.citizenid, frequency))
+        -- Radio interception successful
         
         cb({ success = true, data = radioData })
         
@@ -82,9 +93,7 @@ AddEventHandler('qb-hackerjob:server:logRadioAttempt', function(data)
     
     if not Player then return end
     
-    -- Log the radio interception attempt
-    print(string.format("[qb-hackerjob] Player %s (%s) attempted to intercept radio frequency %s", 
-        GetPlayerName(src), Player.PlayerData.citizenid, data.frequency))
+    -- Radio interception attempt logged
 end)
 
 -- Event for alerting police about radio interception (if configured)

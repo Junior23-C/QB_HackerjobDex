@@ -1,4 +1,4 @@
-// NUI Variables
+// Enhanced NUI Variables with error handling
 let laptopOpen = false;
 let activeAppWindow = null;
 let nearbyVehicles = [];
@@ -12,45 +12,273 @@ let currentXP = 0;
 let nextLevelXP = 100;
 let currentLevelName = "Script Kiddie";
 
-// DOM Ready
+// Error handling configuration
+const ErrorConfig = {
+    maxRetries: 3,
+    retryDelay: 500,
+    requestTimeout: 10000,
+    logLevel: 'INFO'
+};
+
+// Health monitoring
+const NUIHealth = {
+    lastServerResponse: Date.now(),
+    failedRequests: 0,
+    connected: true
+};
+
+// Enhanced logging functions
+function safeLogError(message, context) {
+    const timestamp = new Date().toISOString();
+    const contextStr = context ? ` [${context}]` : '';
+    console.error(`[qb-hackerjob:nui:ERROR] [${timestamp}] ${message}${contextStr}`);
+}
+
+function safeLogInfo(message, context) {
+    if (ErrorConfig.logLevel === 'DEBUG' || ErrorConfig.logLevel === 'INFO') {
+        const timestamp = new Date().toISOString();
+        const contextStr = context ? ` [${context}]` : '';
+        console.log(`[qb-hackerjob:nui:INFO] [${timestamp}] ${message}${contextStr}`);
+    }
+}
+
+function safeLogDebug(message, context) {
+    if (ErrorConfig.logLevel === 'DEBUG') {
+        const timestamp = new Date().toISOString();
+        const contextStr = context ? ` [${context}]` : '';
+        console.log(`[qb-hackerjob:nui:DEBUG] [${timestamp}] ${message}${contextStr}`);
+    }
+}
+
+// Safe POST request wrapper with retry logic
+function safePost(url, data, successCallback, errorCallback, retries = ErrorConfig.maxRetries) {
+    if (!url || typeof url !== 'string') {
+        safeLogError('Invalid URL provided to safePost');
+        if (errorCallback) errorCallback(new Error('Invalid URL'));
+        return;
+    }
+    
+    function attemptRequest(attempt) {
+        const timeoutId = setTimeout(() => {
+            safeLogError(`Request timeout for ${url} on attempt ${attempt}`);
+            if (attempt < retries) {
+                setTimeout(() => attemptRequest(attempt + 1), ErrorConfig.retryDelay * attempt);
+            } else {
+                NUIHealth.failedRequests++;
+                const error = new Error('Request timeout after all retries');
+                if (errorCallback) errorCallback(error);
+            }
+        }, ErrorConfig.requestTimeout);
+        
+        try {
+            $.post(url, JSON.stringify(data || {}), function(response) {
+                clearTimeout(timeoutId);
+                NUIHealth.lastServerResponse = Date.now();
+                NUIHealth.connected = true;
+                safeLogDebug(`Request successful: ${url}`);
+                if (successCallback) successCallback(response);
+            }).fail(function(xhr, status, error) {
+                clearTimeout(timeoutId);
+                safeLogError(`Request failed on attempt ${attempt}/${retries}: ${url} - ${error}`);
+                if (attempt < retries) {
+                    setTimeout(() => attemptRequest(attempt + 1), ErrorConfig.retryDelay * attempt);
+                } else {
+                    NUIHealth.failedRequests++;
+                    if (errorCallback) errorCallback(new Error(`Request failed: ${error}`));
+                }
+            });
+        } catch (err) {
+            clearTimeout(timeoutId);
+            safeLogError(`Exception during request: ${url} - ${err.message}`);
+            if (attempt < retries) {
+                setTimeout(() => attemptRequest(attempt + 1), ErrorConfig.retryDelay * attempt);
+            } else {
+                if (errorCallback) errorCallback(err);
+            }
+        }
+    }
+    
+    attemptRequest(1);
+}
+
+// Safe DOM manipulation wrapper
+function safeQuerySelector(selector, context = document) {
+    try {
+        const element = context.querySelector(selector);
+        if (!element) {
+            safeLogError(`Element not found: ${selector}`);
+        }
+        return element;
+    } catch (err) {
+        safeLogError(`Error selecting element: ${selector} - ${err.message}`);
+        return null;
+    }
+}
+
+function safeQuerySelectorAll(selector, context = document) {
+    try {
+        const elements = context.querySelectorAll(selector);
+        return elements;
+    } catch (err) {
+        safeLogError(`Error selecting elements: ${selector} - ${err.message}`);
+        return [];
+    }
+}
+
+// Safe event listener wrapper
+function safeAddEventListener(element, event, handler, options) {
+    if (!element) {
+        safeLogError('No element provided to safeAddEventListener');
+        return false;
+    }
+    
+    if (typeof handler !== 'function') {
+        safeLogError('Invalid handler provided to safeAddEventListener');
+        return false;
+    }
+    
+    try {
+        element.addEventListener(event, function(e) {
+            try {
+                handler(e);
+            } catch (err) {
+                safeLogError(`Error in event handler for ${event}: ${err.message}`);
+            }
+        }, options);
+        return true;
+    } catch (err) {
+        safeLogError(`Failed to add event listener for ${event}: ${err.message}`);
+        return false;
+    }
+}
+
+// Network health monitoring
+function monitorNetworkHealth() {
+    const now = Date.now();
+    const timeSinceLastResponse = now - NUIHealth.lastServerResponse;
+    
+    if (timeSinceLastResponse > 30000) { // 30 seconds
+        NUIHealth.connected = false;
+        safeLogError('Network connection appears to be lost');
+    }
+    
+    if (NUIHealth.failedRequests > 5) {
+        safeLogError(`High number of failed requests: ${NUIHealth.failedRequests}`);
+    }
+}
+
+// Start network monitoring
+setInterval(monitorNetworkHealth, 5000);
+
+// Enhanced DOM Ready with error handling
 $(document).ready(function() {
-    // Initialize
-    resetUI();
-    setupEventHandlers();
-    setupDragFunctionality();
-    updateClock();
+    safeLogInfo('DOM ready, initializing laptop interface');
+    
+    try {
+        // Initialize with error handling
+        resetUI();
+        setupEventHandlers();
+        setupDragFunctionality();
+        updateClock();
+        
+        safeLogInfo('Laptop interface initialization completed successfully');
+    } catch (err) {
+        safeLogError('Failed to initialize laptop interface: ' + err.message);
+        // Try to show a basic error message
+        try {
+            document.body.innerHTML = '<div style="color: red; text-align: center; margin-top: 50px; font-size: 18px;">Error initializing laptop interface. Please restart the resource.</div>';
+        } catch (e) {
+            safeLogError('Critical error - unable to show error message');
+        }
+    }
 
-    // ### DISABLE NEARBY TAB VISUALLY ###
-    // Hide the nearby tab and its content pane permanently
-    $('#plate-lookup-app .tab[data-tab="nearby"]').hide();
-    $('#nearby-tab').hide();
-    // Ensure search is the default active tab (might be redundant with openApp logic but safe)
-    $('#plate-lookup-app .tab[data-tab="search"]').addClass('active');
-    $('#search-tab').addClass('active');
-    // ##################################
+    // Safe UI modifications
+    try {
+        // ### DISABLE NEARBY TAB VISUALLY ###
+        // Hide the nearby tab and its content pane permanently
+        $('#plate-lookup-app .tab[data-tab="nearby"]').hide();
+        $('#nearby-tab').hide();
+        // Ensure search is the default active tab (might be redundant with openApp logic but safe)
+        $('#plate-lookup-app .tab[data-tab="search"]').addClass('active');
+        $('#search-tab').addClass('active');
+        // ##################################
+        
+        safeLogDebug('UI modifications completed successfully');
+    } catch (err) {
+        safeLogError('Failed to apply UI modifications: ' + err.message);
+    }
 
-    // Clock updater
-    setInterval(updateClock, 60000); // Update clock every minute
+    // Safe clock updater with error handling
+    try {
+        let clockUpdateInterval = 60000; // Start with 1 minute
+        setInterval(() => {
+            try {
+                updateClock();
+                // Reduce frequency if laptop has been idle
+                const now = Date.now();
+                if (now - laptopLastUsed > 300000) { // If idle for 5+ minutes
+                    clockUpdateInterval = 120000; // Update every 2 minutes when idle
+                } else {
+                    clockUpdateInterval = 60000; // Normal frequency when active
+                }
+            } catch (err) {
+                safeLogError('Error updating clock: ' + err.message);
+            }
+        }, clockUpdateInterval);
+        
+        safeLogDebug('Clock updater initialized successfully');
+    } catch (err) {
+        safeLogError('Failed to initialize clock updater: ' + err.message);
+    }
 });
 
-// Setup all event handlers
+// Enhanced event handlers setup with error handling
 function setupEventHandlers() {
-    // Desktop icon click handler
-    $('.desktop-icon').on('click', function() {
-        const appName = $(this).data('app');
-        openApp(appName);
-    });
+    safeLogDebug('Setting up event handlers');
+    
+    try {
+        // Safe desktop icon click handler
+        $('.desktop-icon').on('click', function() {
+            try {
+                const appName = $(this).data('app');
+                if (!appName) {
+                    safeLogError('No app name found for desktop icon');
+                    return;
+                }
+                openApp(appName);
+            } catch (err) {
+                safeLogError('Error handling desktop icon click: ' + err.message);
+            }
+        });
 
-    // Window controls
-    $('.window-close').on('click', function() {
-        const appWindow = $(this).closest('.app-window');
-        closeApp(appWindow.attr('id'));
-    });
+        // Safe window controls
+        $('.window-close').on('click', function() {
+            try {
+                const appWindow = $(this).closest('.app-window');
+                const windowId = appWindow.attr('id');
+                if (!windowId) {
+                    safeLogError('No window ID found for close button');
+                    return;
+                }
+                closeApp(windowId);
+            } catch (err) {
+                safeLogError('Error handling window close: ' + err.message);
+            }
+        });
 
-    $('.window-minimize').on('click', function() {
-        const appWindow = $(this).closest('.app-window');
-        minimizeApp(appWindow.attr('id'));
-    });
+        $('.window-minimize').on('click', function() {
+            try {
+                const appWindow = $(this).closest('.app-window');
+                const windowId = appWindow.attr('id');
+                if (!windowId) {
+                    safeLogError('No window ID found for minimize button');
+                    return;
+                }
+                minimizeApp(windowId);
+            } catch (err) {
+                safeLogError('Error handling window minimize: ' + err.message);
+            }
+        });
 
     // Tab navigation
     $('.tab').on('click', function() {
@@ -97,22 +325,50 @@ function setupEventHandlers() {
 
     // App-specific handlers
 
-    // Plate Lookup
-    $('#search-plate').on('click', function() {
-        const plate = $('#plate-input').val().trim();
-        if (plate.length > 0) {
-            searchPlate(plate);
-        }
-    });
-
-    $('#plate-input').on('keyup', function(e) {
-        if (e.keyCode === 13) {
-            const plate = $(this).val().trim();
-            if (plate.length > 0) {
-                searchPlate(plate);
+        // Safe plate lookup handlers
+        $('#search-plate').on('click', function() {
+            try {
+                const plateInput = $('#plate-input');
+                if (plateInput.length === 0) {
+                    safeLogError('Plate input element not found');
+                    return;
+                }
+                
+                const plate = plateInput.val();
+                if (!plate || typeof plate !== 'string') {
+                    safeLogError('Invalid plate input value');
+                    return;
+                }
+                
+                const trimmedPlate = plate.trim();
+                if (trimmedPlate.length > 0) {
+                    searchPlate(trimmedPlate);
+                } else {
+                    safeLogError('Empty plate input provided');
+                }
+            } catch (err) {
+                safeLogError('Error handling plate search button: ' + err.message);
             }
-        }
-    });
+        });
+
+        $('#plate-input').on('keyup', function(e) {
+            try {
+                if (e.keyCode === 13) {
+                    const plate = $(this).val();
+                    if (!plate || typeof plate !== 'string') {
+                        safeLogError('Invalid plate input value on keyup');
+                        return;
+                    }
+                    
+                    const trimmedPlate = plate.trim();
+                    if (trimmedPlate.length > 0) {
+                        searchPlate(trimmedPlate);
+                    }
+                }
+            } catch (err) {
+                safeLogError('Error handling plate input keyup: ' + err.message);
+            }
+        });
 
     $('#refresh-nearby').on('click', function() {
         // ### DISABLED NEARBY VEHICLES ###
@@ -155,12 +411,21 @@ function setupEventHandlers() {
         }
     });
 
-    // On escape key, close the laptop
-    $(document).on('keyup', function(e) {
-        if (e.keyCode === 27) {
-            closeLaptop();
-        }
-    });
+        // Safe escape key handler
+        $(document).on('keyup', function(e) {
+            try {
+                if (e.keyCode === 27) {
+                    closeLaptop();
+                }
+            } catch (err) {
+                safeLogError('Error handling escape key: ' + err.message);
+            }
+        });
+        
+        safeLogDebug('Event handlers setup completed successfully');
+    } catch (err) {
+        safeLogError('Failed to setup event handlers: ' + err.message);
+    }
 }
 
 // Reset UI state
@@ -181,93 +446,196 @@ function resetUI() {
     updateHackerStatsDisplay(); // Reset display
 }
 
-// Open the laptop
+// Enhanced laptop opening function with error handling
 function openLaptop(data) {
-    if (laptopOpen) return;
-
-    console.log('Opening laptop with data:', data);
-
-    // Process incoming data if provided
-    if (data) {
-        soundEnabled = false; // Force disable sound
-        useAnimations = data.animations !== undefined ? data.animations : true;
-        darkTheme = data.theme === 'dark'; // Assuming theme comes from Lua now
-        batteryLevel = data.batteryLevel !== undefined ? data.batteryLevel : 100;
-        isCharging = data.charging !== undefined ? data.charging : false;
-        // Store initial hacker stats from Lua
-        currentLevel = data.level || 1;
-        currentXP = data.xp || 0;
-        nextLevelXP = data.nextLevelXP || 100;
-        currentLevelName = data.levelName || "Script Kiddie";
-    }
-
-    laptopOpen = true;
-
-    // Show the laptop container
-    $('#laptop-container').removeClass('hidden').addClass('visible');
-
-    // Force clear any existing battery elements to prevent duplicates
-    $('#battery-indicator, #battery-menu').remove();
-
-    // Create battery indicator
-    createBatteryIndicator();
-
-    // Update battery display
-    updateBatteryDisplay(batteryLevel, isCharging);
-
-    // Update hacker stats display (initial)
-    updateHackerStatsDisplay(currentLevel, currentXP, nextLevelXP, currentLevelName);
-
-    // Skip animations if disabled
-    if (!useAnimations) {
-        $('#boot-screen').addClass('hidden');
-        $('#desktop').removeClass('hidden');
+    if (laptopOpen) {
+        safeLogInfo('Laptop already open');
         return;
     }
 
-    // Reset boot screen
-    $('#boot-screen').removeClass('hidden');
-    $('.boot-progress-bar').css('width', '0%');
-    $('.boot-text').text('INITIALIZING SECURE SHELL...');
+    safeLogInfo('Opening laptop with data:', data ? 'provided' : 'not provided');
 
-    // Start boot sequence
-    const bootMessages = [
-        'INITIALIZING SECURE SHELL...',
-        'ESTABLISHING ENCRYPTED CONNECTION...',
-        'BYPASSING SECURITY PROTOCOLS...',
-        'LOADING CORE MODULES...',
-        'ACTIVATING NETWORK INTERFACES...',
-        'SYSTEM READY'
-    ];
+    try {
+        // Safe data processing
+        if (data && typeof data === 'object') {
+            try {
+                soundEnabled = false; // Force disable sound for performance
+                useAnimations = data.animations !== undefined ? Boolean(data.animations) : false;
+                darkTheme = data.theme === 'dark';
+                
+                // Safe number validation
+                batteryLevel = (typeof data.batteryLevel === 'number' && data.batteryLevel >= 0 && data.batteryLevel <= 100) 
+                    ? data.batteryLevel : 100;
+                isCharging = Boolean(data.charging);
+                
+                // Safe hacker stats validation
+                currentLevel = (typeof data.level === 'number' && data.level > 0) ? data.level : 1;
+                currentXP = (typeof data.xp === 'number' && data.xp >= 0) ? data.xp : 0;
+                nextLevelXP = (typeof data.nextLevelXP === 'number' && data.nextLevelXP > 0) ? data.nextLevelXP : 100;
+                currentLevelName = (typeof data.levelName === 'string' && data.levelName.length > 0) 
+                    ? data.levelName : "Script Kiddie";
+                
+                safeLogDebug('Data processed successfully - Level: ' + currentLevel + ', XP: ' + currentXP + ', Battery: ' + batteryLevel + '%');
+            } catch (err) {
+                safeLogError('Error processing laptop data: ' + err.message);
+                // Set safe defaults
+                batteryLevel = 100;
+                isCharging = false;
+                currentLevel = 1;
+                currentXP = 0;
+                nextLevelXP = 100;
+                currentLevelName = "Script Kiddie";
+            }
+        } else {
+            safeLogDebug('No data provided, using defaults');
+            // Set safe defaults
+            batteryLevel = 100;
+            isCharging = false;
+            currentLevel = 1;
+            currentXP = 0;
+            nextLevelXP = 100;
+            currentLevelName = "Script Kiddie";
+        }
 
-    let messageIndex = 0;
-    let progressIncrement = 100 / (bootMessages.length - 1);
+        laptopOpen = true;
 
-    const bootSequence = setInterval(() => {
-        // Update boot message
-        $('.boot-text').text(bootMessages[messageIndex]);
+        // Safe UI setup
+        const laptopContainer = $('#laptop-container');
+        if (laptopContainer.length === 0) {
+            throw new Error('Laptop container element not found');
+        }
+        
+        laptopContainer.removeClass('hidden').addClass('visible');
+        
+        // Safe cleanup of existing battery elements
+        try {
+            $('#battery-indicator, #battery-menu').remove();
+        } catch (err) {
+            safeLogError('Error removing existing battery elements: ' + err.message);
+        }
+        
+        // Safe battery indicator creation
+        try {
+            createBatteryIndicator();
+            updateBatteryDisplay(batteryLevel, isCharging);
+        } catch (err) {
+            safeLogError('Error creating battery indicator: ' + err.message);
+        }
+        
+        // Safe stats display update
+        try {
+            updateHackerStatsDisplay(currentLevel, currentXP, nextLevelXP, currentLevelName);
+        } catch (err) {
+            safeLogError('Error updating hacker stats display: ' + err.message);
+        }
 
-        // Increment progress bar
-        let currentProgress = progressIncrement * messageIndex;
-        $('.boot-progress-bar').css('width', `${currentProgress}%`);
+        // Safe boot sequence
+        if (!useAnimations) {
+            try {
+                const bootScreen = $('#boot-screen');
+                const desktop = $('#desktop');
+                
+                if (bootScreen.length > 0) {
+                    bootScreen.addClass('hidden');
+                }
+                if (desktop.length > 0) {
+                    desktop.removeClass('hidden');
+                }
+                
+                safeLogDebug('Laptop opened successfully without animations');
+                return;
+            } catch (err) {
+                safeLogError('Error during no-animation boot: ' + err.message);
+                // Continue with animated boot as fallback
+            }
+        }
 
-        messageIndex++;
+        // Safe animated boot sequence
+        try {
+            const bootScreen = $('#boot-screen');
+            const progressBar = $('.boot-progress-bar');
+            const bootText = $('.boot-text');
+            
+            if (bootScreen.length === 0 || progressBar.length === 0 || bootText.length === 0) {
+                throw new Error('Boot screen elements not found');
+            }
+            
+            bootScreen.removeClass('hidden');
+            progressBar.css('width', '0%');
+            bootText.text('INITIALIZING SYSTEM...');
 
-        // When boot sequence is complete
-        if (messageIndex >= bootMessages.length) {
-            clearInterval(bootSequence);
+            // Safe boot sequence with error handling
+            const bootSteps = [
+                { text: 'INITIALIZING SYSTEM...', progress: 25 },
+                { text: 'LOADING MODULES...', progress: 75 },
+                { text: 'SYSTEM READY', progress: 100 }
+            ];
 
-            // Finish progress bar animation
-            $('.boot-progress-bar').css('width', '100%');
-
-            // Delay slightly before showing desktop
-            setTimeout(() => {
-                // Hide boot screen and show desktop
+            let stepIndex = 0;
+            const fastBootSequence = setInterval(() => {
+                try {
+                    if (stepIndex < bootSteps.length) {
+                        const step = bootSteps[stepIndex];
+                        const bootTextElement = $('.boot-text');
+                        const progressBarElement = $('.boot-progress-bar');
+                        
+                        if (bootTextElement.length > 0) {
+                            bootTextElement.text(step.text);
+                        }
+                        if (progressBarElement.length > 0) {
+                            progressBarElement.css('width', `${step.progress}%`);
+                        }
+                        
+                        stepIndex++;
+                    } else {
+                        clearInterval(fastBootSequence);
+                        
+                        // Safe transition to desktop
+                        setTimeout(() => {
+                            try {
+                                const bootScreenElement = $('#boot-screen');
+                                const desktopElement = $('#desktop');
+                                
+                                if (bootScreenElement.length > 0) {
+                                    bootScreenElement.addClass('hidden');
+                                }
+                                if (desktopElement.length > 0) {
+                                    desktopElement.removeClass('hidden');
+                                }
+                                
+                                safeLogInfo('Laptop boot sequence completed successfully');
+                            } catch (err) {
+                                safeLogError('Error during desktop transition: ' + err.message);
+                            }
+                        }, 200);
+                    }
+                } catch (err) {
+                    safeLogError('Error during boot sequence step: ' + err.message);
+                    clearInterval(fastBootSequence);
+                    // Force show desktop as fallback
+                    try {
+                        $('#boot-screen').addClass('hidden');
+                        $('#desktop').removeClass('hidden');
+                    } catch (e) {
+                        safeLogError('Critical error during boot fallback: ' + e.message);
+                    }
+                }
+            }, 300);
+        } catch (err) {
+            safeLogError('Error setting up boot sequence: ' + err.message);
+            // Fallback to direct desktop show
+            try {
                 $('#boot-screen').addClass('hidden');
                 $('#desktop').removeClass('hidden');
-            }, 500);
+            } catch (e) {
+                safeLogError('Critical error during boot fallback: ' + e.message);
+            }
         }
-    }, 600);
+    } catch (err) {
+        safeLogError('Error in openLaptop function: ' + err.message);
+        // Reset state on error
+        laptopOpen = false;
+    }
 }
 
 // Create battery indicator for taskbar
@@ -414,7 +782,7 @@ function createBatteryIndicator() {
     });
 }
 
-// Update battery display - enhanced version
+// Optimized battery display update with batched DOM operations
 function updateBatteryDisplay(level, charging) {
     console.log('Updating battery display:', { level: level, charging: charging });
 
@@ -430,50 +798,97 @@ function updateBatteryDisplay(level, charging) {
     // Round the battery level to zero decimal places for display
     const displayLevel = Math.round(batteryLevel);
 
-    // Update percentage text
-    $('.battery-percentage').text(`${displayLevel}%`);
-    $('.battery-percentage-large').text(`${displayLevel}%`);
-
-    // Update battery meter
-    $('.battery-meter-fill').css('width', `${displayLevel}%`);
-
-    // Update battery icon class based on level
+    // Batch DOM updates for better performance
+    const updates = [];
     const batteryIcon = $('.battery-icon');
-    batteryIcon.removeClass('battery-high battery-medium battery-low battery-critical battery-charging');
+    
+    // Prepare all updates
+    updates.push(() => $('.battery-percentage').text(`${displayLevel}%`));
+    updates.push(() => $('.battery-percentage-large').text(`${displayLevel}%`));
+    updates.push(() => $('.battery-meter-fill').css('width', `${displayLevel}%`));
+    
+    // Remove all battery state classes first
+    updates.push(() => batteryIcon.removeClass('battery-high battery-medium battery-low battery-critical battery-charging'));
+
+    let statusText = '';
+    let buttonText = '';
+    let iconClass = '';
 
     if (isCharging) {
-        batteryIcon.addClass('battery-charging');
-        $('.battery-status').text('Charging');
-        $('#toggle-charger').text('Disconnect Charger');
+        iconClass = 'battery-charging';
+        statusText = 'Charging';
+        buttonText = 'Disconnect Charger';
     } else {
-        $('#toggle-charger').text('Connect Charger');
-
+        buttonText = 'Connect Charger';
         if (displayLevel >= 60) {
-            batteryIcon.addClass('battery-high');
-            $('.battery-status').text('Normal');
+            iconClass = 'battery-high';
+            statusText = 'Normal';
         } else if (displayLevel >= 30) {
-            batteryIcon.addClass('battery-medium');
-            $('.battery-status').text('Normal');
+            iconClass = 'battery-medium';
+            statusText = 'Normal';
         } else if (displayLevel >= 15) {
-            batteryIcon.addClass('battery-low');
-            $('.battery-status').text('Low');
+            iconClass = 'battery-low';
+            statusText = 'Low';
         } else {
-            batteryIcon.addClass('battery-critical');
-            $('.battery-status').text('Critical!');
+            iconClass = 'battery-critical';
+            statusText = 'Critical!';
         }
     }
+
+    updates.push(() => batteryIcon.addClass(iconClass));
+    updates.push(() => $('.battery-status').text(statusText));
+    updates.push(() => $('#toggle-charger').text(buttonText));
+
+    // Execute all DOM updates in a single animation frame for better performance
+    requestAnimationFrame(() => {
+        updates.forEach(update => update());
+    });
 }
 
-// Close laptop UI
+// Enhanced laptop closing function with error handling
 function closeLaptop() {
-    if (!laptopOpen) return;
+    if (!laptopOpen) {
+        safeLogDebug('Laptop already closed');
+        return;
+    }
 
-    $('#laptop-container').removeClass('visible');
+    safeLogInfo('Closing laptop');
+    
+    try {
+        const laptopContainer = $('#laptop-container');
+        if (laptopContainer.length > 0) {
+            laptopContainer.removeClass('visible');
+        }
 
-    setTimeout(() => {
-        resetUI();
-        $.post('https://qb-hackerjob/closeLaptop', JSON.stringify({}));
-    }, 500);
+        setTimeout(() => {
+            try {
+                resetUI();
+                
+                // Safe server notification
+                safePost('https://qb-hackerjob/closeLaptop', 
+                    {},
+                    function(response) {
+                        safeLogDebug('Laptop close notification sent successfully');
+                    },
+                    function(error) {
+                        safeLogError('Failed to notify server of laptop close: ' + error.message);
+                    }
+                );
+                
+                safeLogInfo('Laptop closed successfully');
+            } catch (err) {
+                safeLogError('Error during laptop close cleanup: ' + err.message);
+            }
+        }, 500);
+    } catch (err) {
+        safeLogError('Error in closeLaptop function: ' + err.message);
+        // Force reset UI as fallback
+        try {
+            resetUI();
+        } catch (e) {
+            safeLogError('Critical error during close fallback: ' + e.message);
+        }
+    }
 }
 
 // Open an app window
@@ -575,25 +990,66 @@ function playSound(sound) {
 
 // Vehicle Functions
 
-// Search for a plate
+// Enhanced plate search function with error handling
 function searchPlate(plate) {
-    if (!plate) return;
-
-    // Show loading animation
-    $('#vehicle-info').html('<div class="loading-text">Searching database for plate ' + plate + '...</div>');
-
-    // Change to results tab
-    $('#plate-lookup-app .tab[data-tab="results"]').click();
-
-    // Call the server to search for the plate
-    $.post('https://qb-hackerjob/lookupPlate', JSON.stringify({
-        plate: plate
-    }), function(response) {
-        // Handle server response
-        if (!response.success) {
-            $('#vehicle-info').html('<div class="no-results">Error: Could not retrieve data.</div>');
+    safeLogDebug('Starting plate search for: ' + plate);
+    
+    // Validate input
+    if (!plate || typeof plate !== 'string' || plate.trim() === '') {
+        safeLogError('Invalid plate provided to searchPlate');
+        return;
+    }
+    
+    const trimmedPlate = plate.trim();
+    
+    try {
+        // Show loading animation
+        const vehicleInfoElement = $('#vehicle-info');
+        if (vehicleInfoElement.length === 0) {
+            safeLogError('Vehicle info element not found');
+            return;
         }
-    });
+        
+        vehicleInfoElement.html('<div class="loading-text">Searching database for plate ' + trimmedPlate + '...</div>');
+        
+        // Change to results tab
+        const resultsTab = $('#plate-lookup-app .tab[data-tab="results"]');
+        if (resultsTab.length > 0) {
+            resultsTab.click();
+        } else {
+            safeLogError('Results tab not found');
+        }
+        
+        // Safe server call
+        safePost('https://qb-hackerjob/lookupPlate', 
+            { plate: trimmedPlate },
+            function(response) {
+                try {
+                    if (!response || typeof response !== 'object') {
+                        throw new Error('Invalid response format');
+                    }
+                    
+                    if (!response.success) {
+                        const errorMessage = response.message || 'Could not retrieve data';
+                        vehicleInfoElement.html('<div class="no-results">Error: ' + errorMessage + '</div>');
+                        safeLogError('Plate lookup failed: ' + errorMessage);
+                    } else {
+                        safeLogInfo('Plate lookup successful for: ' + trimmedPlate);
+                        // Success handling will be done by the message handler
+                    }
+                } catch (err) {
+                    safeLogError('Error processing plate lookup response: ' + err.message);
+                    vehicleInfoElement.html('<div class="no-results">Error: Failed to process response</div>');
+                }
+            },
+            function(error) {
+                safeLogError('Plate lookup request failed: ' + error.message);
+                vehicleInfoElement.html('<div class="no-results">Error: Connection failed - please try again</div>');
+            }
+        );
+    } catch (err) {
+        safeLogError('Error in searchPlate function: ' + err.message);
+    }
 }
 
 // Update the list of nearby vehicles
@@ -1114,92 +1570,161 @@ function decryptRadio(frequency) {
     }, 3000);
 }
 
-// NUI Message Handler
+// Enhanced NUI Message Handler with comprehensive error handling
 window.addEventListener('message', function(event) {
-    const data = event.data;
-
-    if (data.action === 'openLaptop' || data.type === 'openLaptop') {
-        // Store initial data from Lua
-        currentLevel = data.level || 1;
-        currentXP = data.xp || 0;
-        nextLevelXP = data.nextLevelXP || 100;
-        currentLevelName = data.levelName || "Script Kiddie";
-        // Call openLaptop function which uses these global vars
-        openLaptop(data);
-    } else if (data.action === 'closeLaptop') {
-        closeLaptop();
-    } else if (data.action === 'updateVehicleData') {
-        displayVehicleData(data.data);
-    } else if (data.action === 'updateNearbyVehicles') {
-        // ### DISABLED NEARBY VEHICLES ###
-        console.log('Received updateNearbyVehicles event - DISABLED');
-        // Reset the nearby vehicles list in the UI
-        $('#nearby-vehicles').html('<div class="info-note">Nearby vehicle scanning is disabled. Use the Search tab.</div>');
-        nearbyVehicles = []; // Clear local cache too
-        // displayNearbyVehicles(data.vehicles); // Don't call this
-        // #############################
-    } else if (data.action === 'updateBattery') {
-        console.log('Received battery update from server:', data);
-        // Force create battery indicator if it doesn't exist
-        if ($('#battery-indicator').length === 0 || $('#battery-menu').length === 0) {
-            console.log('Creating missing battery elements from message handler');
-            createBatteryIndicator();
+    try {
+        const data = event.data;
+        
+        if (!data || typeof data !== 'object') {
+            safeLogError('Invalid message data received');
+            return;
         }
-        updateBatteryDisplay(data.level, data.charging);
-    } else if (data.action === 'updateHackerStats' || data.type === 'updateHackerStats') {
-        console.log('Received hacker stats update:', data);
-        console.log('Updating display with:', data.level, data.xp, data.nextLevelXP, data.levelName);
-
-        // Update global vars (might still be useful elsewhere, e.g., initial load)
-        currentLevel = data.level;
-        currentXP = data.xp;
-        nextLevelXP = data.nextLevelXP;
-        currentLevelName = data.levelName;
         
-        // Pass the NEW data directly into the display function
-        updateHackerStatsDisplay(data.level, data.xp, data.nextLevelXP, data.levelName);
+        const action = data.action || data.type;
+        if (!action) {
+            safeLogError('No action specified in message data');
+            return;
+        }
         
-        // Force refresh the DOM elements
-        setTimeout(() => {
-            updateHackerStatsDisplay(data.level, data.xp, data.nextLevelXP, data.levelName);
-        }, 50);
-    } else if (data.action === 'phoneTrackResult') {
-        // Handle phone track result
-    } else if (data.action === 'radioDecryptResult') {
-        // Handle radio decrypt result
+        safeLogDebug('Received message with action: ' + action);
+        
+        try {
+            switch (action) {
+                case 'openLaptop':
+                    // Safe data extraction
+                    currentLevel = (typeof data.level === 'number' && data.level > 0) ? data.level : 1;
+                    currentXP = (typeof data.xp === 'number' && data.xp >= 0) ? data.xp : 0;
+                    nextLevelXP = (typeof data.nextLevelXP === 'number' && data.nextLevelXP > 0) ? data.nextLevelXP : 100;
+                    currentLevelName = (typeof data.levelName === 'string' && data.levelName.length > 0) ? data.levelName : "Script Kiddie";
+                    
+                    openLaptop(data);
+                    break;
+                    
+                case 'closeLaptop':
+                    closeLaptop();
+                    break;
+                    
+                case 'updateVehicleData':
+                    if (data.data) {
+                        displayVehicleData(data.data);
+                    } else {
+                        safeLogError('No vehicle data provided in updateVehicleData message');
+                    }
+                    break;
+                    
+                case 'updateNearbyVehicles':
+                    // ### DISABLED NEARBY VEHICLES ###
+                    safeLogInfo('Received updateNearbyVehicles event - DISABLED');
+                    try {
+                        const nearbyElement = $('#nearby-vehicles');
+                        if (nearbyElement.length > 0) {
+                            nearbyElement.html('<div class="info-note">Nearby vehicle scanning is disabled. Use the Search tab.</div>');
+                        }
+                        nearbyVehicles = [];
+                    } catch (err) {
+                        safeLogError('Error updating nearby vehicles UI: ' + err.message);
+                    }
+                    break;
+                    
+                case 'updateBattery':
+                    try {
+                        const level = (typeof data.level === 'number' && data.level >= 0 && data.level <= 100) ? data.level : 100;
+                        const charging = Boolean(data.charging);
+                        
+                        // Force create battery indicator if it doesn't exist
+                        if ($('#battery-indicator').length === 0 || $('#battery-menu').length === 0) {
+                            safeLogDebug('Creating missing battery elements from message handler');
+                            createBatteryIndicator();
+                        }
+                        
+                        updateBatteryDisplay(level, charging);
+                    } catch (err) {
+                        safeLogError('Error updating battery display: ' + err.message);
+                    }
+                    break;
+                    
+                case 'updateHackerStats':
+                    try {
+                        const level = (typeof data.level === 'number' && data.level > 0) ? data.level : 1;
+                        const xp = (typeof data.xp === 'number' && data.xp >= 0) ? data.xp : 0;
+                        const nextXP = (typeof data.nextLevelXP === 'number' && data.nextLevelXP > 0) ? data.nextLevelXP : 100;
+                        const levelName = (typeof data.levelName === 'string' && data.levelName.length > 0) ? data.levelName : "Script Kiddie";
+                        
+                        safeLogDebug('Updating hacker stats - Level: ' + level + ', XP: ' + xp + ', NextXP: ' + nextXP + ', Name: ' + levelName);
+                        
+                        // Update global vars
+                        currentLevel = level;
+                        currentXP = xp;
+                        nextLevelXP = nextXP;
+                        currentLevelName = levelName;
+                        
+                        // Update display
+                        updateHackerStatsDisplay(level, xp, nextXP, levelName);
+                        
+                        // Force refresh with delay
+                        setTimeout(() => {
+                            try {
+                                updateHackerStatsDisplay(level, xp, nextXP, levelName);
+                            } catch (err) {
+                                safeLogError('Error in delayed stats update: ' + err.message);
+                            }
+                        }, 50);
+                    } catch (err) {
+                        safeLogError('Error updating hacker stats: ' + err.message);
+                    }
+                    break;
+                    
+                case 'phoneTrackResult':
+                    safeLogDebug('Phone track result received (not implemented)');
+                    break;
+                    
+                case 'radioDecryptResult':
+                    safeLogDebug('Radio decrypt result received (not implemented)');
+                    break;
+                    
+                default:
+                    safeLogError('Unknown message action: ' + action);
+                    break;
+            }
+        } catch (err) {
+            safeLogError('Error handling message action ' + action + ': ' + err.message);
+        }
+    } catch (err) {
+        safeLogError('Critical error in message handler: ' + err.message);
     }
 });
 
-// Function to update the hacker stats display in the taskbar
+// Optimized hacker stats display update with batched DOM operations
 function updateHackerStatsDisplay(level, xp, nextXP, levelName) {
-    const levelElement = $('#hacker-level-name');
-    const xpElement = $('#hacker-xp-progress');
-
-    // Update global variables as well, as they might be used elsewhere
+    // Update global variables
     currentLevel = level;
     currentXP = xp;
     nextLevelXP = nextXP;
     currentLevelName = levelName;
 
-    // Ensure elements exist before trying to update
-    if (levelElement.length > 0) {
-        levelElement.text(levelName || `Level ${level}`); // Use .text() for simplicity
-    } else {
-        console.warn("Could not find #hacker-level-name element to update.");
-    }
+    // Cache DOM elements
+    const levelElement = $('#hacker-level-name');
+    const xpElement = $('#hacker-xp-progress');
 
-    // Ensure nextLevelXP is a number and greater than 0 to avoid division by zero or NaN
+    // Prepare display values
+    const displayLevelName = levelName || `Level ${level}`;
     const displayNextXP = (typeof nextXP === 'number' && nextXP > 0) ? nextXP : '?';
+    const displayXPText = `XP: ${xp} / ${displayNextXP}`;
 
-    if (xpElement.length > 0) {
-        xpElement.text(`XP: ${xp} / ${displayNextXP}`); // Use .text() for simplicity
-    } else {
-         console.warn("Could not find #hacker-xp-progress element to update.");
-    }
+    // Batch DOM updates in a single animation frame
+    requestAnimationFrame(() => {
+        if (levelElement.length > 0) {
+            levelElement.text(displayLevelName);
+        } else {
+            console.warn("Could not find #hacker-level-name element to update.");
+        }
 
-    // Optional: Keep the repaint trick if needed, but often .text() is enough
-    // $('.taskbar').css('opacity', '0.99');
-    // setTimeout(() => $('.taskbar').css('opacity', '1'), 50);
+        if (xpElement.length > 0) {
+            xpElement.text(displayXPText);
+        } else {
+            console.warn("Could not find #hacker-xp-progress element to update.");
+        }
+    });
 }
 
 // Add styles for captcha at the end of the file
