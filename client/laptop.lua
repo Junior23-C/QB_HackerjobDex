@@ -758,12 +758,48 @@ RegisterNetEvent('qb-hackerjob:client:openLaptop')
 AddEventHandler('qb-hackerjob:client:openLaptop', function()
     print("^2[qb-hackerjob] ^7openLaptop event triggered")
     
-    -- Job check using the same callback as main.lua
-    QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
-        if not hasJob then
-            QBCore.Functions.Notify('You don\'t know how to use this device', "error")
+    -- Job check using the same callback as main.lua with retry mechanism
+    local function AttemptJobCheck(retryCount)
+        retryCount = retryCount or 0
+        local maxRetries = 3
+        
+        if retryCount >= maxRetries then
+            print("^1[qb-hackerjob] ^7Job check failed after " .. maxRetries .. " attempts")
+            QBCore.Functions.Notify('Unable to verify permissions. Try again later.', "error")
             return
         end
+        
+        print("^3[qb-hackerjob] ^7Attempting job check (attempt " .. (retryCount + 1) .. "/" .. maxRetries .. ")")
+        
+        QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
+            if hasJob == nil then
+                print("^1[qb-hackerjob] ^7Received nil response from job check, retrying...")
+                Citizen.Wait(1000)
+                AttemptJobCheck(retryCount + 1)
+                return
+            end
+            
+            if not hasJob then
+                QBCore.Functions.Notify('You don\'t know how to use this device', "error")
+                return
+            end
+            
+            print("^2[qb-hackerjob] ^7Job check successful, proceeding with laptop opening")
+            OpenLaptopInterface()
+        end)
+        
+        -- Add timeout protection
+        Citizen.CreateThread(function()
+            Citizen.Wait(5000) -- 5 second timeout
+            if retryCount < maxRetries then
+                print("^1[qb-hackerjob] ^7Job check timeout, retrying...")
+                AttemptJobCheck(retryCount + 1)
+            end
+        end)
+    end
+    
+    local function OpenLaptopInterface()
+        -- Moved the laptop opening logic to a separate function
         
         -- Get updated hacker stats before opening NUI (use both methods for reliability)
         QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
@@ -816,7 +852,10 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
                 print("^2[qb-hackerjob] ^7OpenHackerLaptop called successfully")
             end
         end)
-    end)
+    end
+    
+    -- Start the job check process
+    AttemptJobCheck()
 end)
 
 -- Event handler for laptop opening with XP data
