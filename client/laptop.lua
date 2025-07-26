@@ -486,7 +486,7 @@ RegisterNUICallback('performPlateLookup', function(data, cb)
         end
         
         -- Perform the lookup
-        QBCore.Functions.TriggerCallback('qb-hackerjob:server:plateLookup', function(result)
+        QBCore.Functions.TriggerCallback('qb-hackerjob:server:lookupPlate', function(result)
             if result then
                 -- Drain battery for operation
                 DrainBatteryForOperation('plateLookup')
