@@ -812,4 +812,10 @@ AddEventHandler('QBCore:Player:SetPlayerData', function(val)
     end
 end)
 
+-- Add hackerlaptop command for testing
+RegisterCommand('hackerlaptop', function(source, args, rawCommand)
+    print("^2[qb-hackerjob] ^7========== HACKERLAPTOP COMMAND USED ==========")
+    TriggerEvent('qb-hackerjob:client:openLaptop')
+end, false)
+
 -- Client main script initialized

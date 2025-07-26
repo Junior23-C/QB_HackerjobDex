@@ -756,7 +756,10 @@ end
 -- Enhanced laptop opening event with job/battery checks and XP fetching
 RegisterNetEvent('qb-hackerjob:client:openLaptop')
 AddEventHandler('qb-hackerjob:client:openLaptop', function()
-    print("^2[qb-hackerjob] ^7openLaptop event triggered")
+    print("^2[qb-hackerjob] ^7========== LAPTOP OPEN EVENT TRIGGERED ==========")
+    print("^2[qb-hackerjob] ^7Player source: " .. tostring(GetPlayerServerId(PlayerId())))
+    print("^2[qb-hackerjob] ^7QBCore available: " .. tostring(QBCore ~= nil))
+    print("^2[qb-hackerjob] ^7Config available: " .. tostring(Config ~= nil))
     
     -- Job check using the same callback as main.lua with retry mechanism
     local function AttemptJobCheck(retryCount)
@@ -770,8 +773,10 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
         end
         
         print("^3[qb-hackerjob] ^7Attempting job check (attempt " .. (retryCount + 1) .. "/" .. maxRetries .. ")")
+        print("^3[qb-hackerjob] ^7About to call TriggerCallback for hasHackerJob")
         
         QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
+            print("^3[qb-hackerjob] ^7Callback response received: " .. tostring(hasJob))
             if hasJob == nil then
                 print("^1[qb-hackerjob] ^7Received nil response from job check, retrying...")
                 Citizen.Wait(1000)

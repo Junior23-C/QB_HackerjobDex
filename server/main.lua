@@ -436,7 +436,7 @@ Citizen.CreateThread(function()
     -- Safe usable item registration
     local useableItemSuccess = SafeExecute(function()
         QBCore.Functions.CreateUseableItem(Config.LaptopItem, function(source)
-            LogDebug('Laptop item used by player', source)
+            print("^2[qb-hackerjob] ^7========== LAPTOP ITEM USED BY PLAYER " .. tostring(source) .. " ==========")
             
             -- Validate source
             if not source or type(source) ~= 'number' then
@@ -445,6 +445,7 @@ Citizen.CreateThread(function()
             end
             
             -- Safe event trigger
+            print("^2[qb-hackerjob] ^7Triggering openLaptop event for player " .. tostring(source))
             local triggerSuccess = SafeExecute(function()
                 TriggerClientEvent('qb-hackerjob:client:openLaptop', source)
                 return true
@@ -452,6 +453,8 @@ Citizen.CreateThread(function()
             
             if not triggerSuccess then
                 LogError('ERROR', 'Failed to trigger laptop open event', source)
+            else
+                print("^2[qb-hackerjob] ^7Successfully triggered openLaptop event")
             end
         end)
         return true
