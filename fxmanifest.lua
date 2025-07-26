@@ -14,12 +14,17 @@ shared_scripts {
 }
 
 client_scripts {
-    'client/test.lua',
-    'client/simple.lua'
+    'client/main.lua',
+    'client/laptop.lua',
+    'client/plate_lookup.lua',
+    'client/phone_tracker.lua',
+    'client/radio_decryption.lua',
+    'client/vehicle_tracker.lua',
+    'client/vehicle_control.lua',
+    'client/phone_hacking.lua'
 }
 
 server_scripts {
-    'server/test.lua',
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
     'server/plate_lookup.lua',
@@ -27,9 +32,7 @@ server_scripts {
     'server/radio_decryption.lua',
     'server/vendor.lua',
     'server/vehicle_tracker.lua',
-    'server/phone_hacking.lua',
-    'testing/test_framework.lua',
-    'testing/load_test.lua'
+    'server/phone_hacking.lua'
 }
 
 ui_page 'html/index.html'
