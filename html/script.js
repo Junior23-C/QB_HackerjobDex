@@ -1,6 +1,7 @@
 // Enhanced NUI Variables with error handling
 let laptopOpen = false;
 let activeAppWindow = null;
+let activeAppScreen = null;
 let nearbyVehicles = [];
 let soundEnabled = false;
 let useAnimations = true;
@@ -11,6 +12,7 @@ let currentLevel = 1;
 let currentXP = 0;
 let nextLevelXP = 100;
 let currentLevelName = "Script Kiddie";
+let phoneLastUsed = Date.now();
 
 // Error handling configuration
 const ErrorConfig = {
@@ -436,6 +438,7 @@ function setupPhoneEventHandlers() {
         // App card clicks
         $(document).on('click', '.app-card', function() {
             const appName = $(this).data('app');
+            console.log('App card clicked:', appName);
             if (appName) {
                 openApp(appName);
             }
@@ -465,6 +468,7 @@ function setupPhoneEventHandlers() {
         // Primary buttons
         $(document).on('click', '#search-plate', function() {
             const plate = $('#plate-input').val().trim();
+            console.log('Search plate clicked:', plate);
             if (plate) {
                 searchPlate(plate);
             }
