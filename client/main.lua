@@ -1,4 +1,54 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+-- EMERGENCY BASIC CLIENT SCRIPT - MINIMAL WORKING VERSION
+print("^1[qb-hackerjob:client] ^7========== CLIENT MAIN SCRIPT LOADING ==========")
+
+local QBCore = nil
+
+-- Simple QBCore initialization with timeout
+CreateThread(function()
+    local attempts = 0
+    while QBCore == nil and attempts < 50 do
+        QBCore = exports['qb-core']:GetCoreObject()
+        if QBCore then
+            print("^2[qb-hackerjob:client] ^7QBCore initialized successfully after " .. attempts .. " attempts")
+            break
+        end
+        attempts = attempts + 1
+        Wait(100)
+    end
+    
+    if not QBCore then
+        print("^1[qb-hackerjob:client] ^7CRITICAL: Failed to initialize QBCore")
+        return
+    end
+    
+    print("^2[qb-hackerjob:client] ^7QBCore available, proceeding with initialization")
+    
+    -- Add basic usable item setup
+    CreateThread(function()
+        Wait(2000) -- Wait for everything to load
+        
+        print("^2[qb-hackerjob:client] ^7Setting up usable item...")
+        
+        if QBCore and Config and Config.LaptopItem then
+            QBCore.Functions.CreateUseableItem(Config.LaptopItem, function(source, item)
+                print("^2[qb-hackerjob:client] ^7Laptop item used by player " .. source)
+                TriggerEvent('qb-hackerjob:client:openLaptop')
+            end)
+            print("^2[qb-hackerjob:client] ^7Usable item setup complete")
+        else
+            print("^1[qb-hackerjob:client] ^7Failed to setup usable item - missing dependencies")
+        end
+    end)
+end)
+
+-- Basic resource initialization debug
+AddEventHandler('onClientResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    print("^2[qb-hackerjob:client] ^7========== CLIENT MAIN RESOURCE STARTING ==========")
+    print("^2[qb-hackerjob:client] ^7Resource: " .. resourceName)
+end)
+
+print("^2[qb-hackerjob:client] ^7========== CLIENT MAIN SCRIPT LOADED ==========")
 
 -- Enhanced error handling and reliability system for client
 local ErrorConfig = {
