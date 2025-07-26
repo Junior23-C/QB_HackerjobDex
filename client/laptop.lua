@@ -602,6 +602,42 @@ RegisterNUICallback('getStats', function(_, cb)
     cb(stats)
 end)
 
+-- New UI callback handlers for the enhanced interface
+RegisterNUICallback('getContracts', function(_, cb)
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:getContracts', function(result)
+        cb(result)
+    end)
+end)
+
+RegisterNUICallback('acceptContract', function(data, cb)
+    if not data.contractId then
+        cb({success = false, message = "Invalid contract ID"})
+        return
+    end
+    
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:acceptContract', function(result)
+        cb(result)
+    end, data.contractId)
+end)
+
+RegisterNUICallback('getMarketData', function(_, cb)
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:getMarketData', function(result)
+        cb(result)
+    end)
+end)
+
+RegisterNUICallback('getDashboardStats', function(_, cb)
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:getDashboardStats', function(result)
+        cb(result)
+    end)
+end)
+
+RegisterNUICallback('getProfileData', function(_, cb)
+    QBCore.Functions.TriggerCallback('qb-hackerjob:server:getProfileData', function(result)
+        cb(result)
+    end)
+end)
+
 -- Exports
 exports('OpenHackerLaptop', OpenHackerLaptop)
 exports('CloseLaptop', CloseLaptop)

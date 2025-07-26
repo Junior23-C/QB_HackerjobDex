@@ -1517,4 +1517,143 @@ AddEventHandler('QBCore:Server:PlayerLoaded', function(Player)
     InitializePlayerXP(Player)
 end)
 
+-- New UI callback handlers for enhanced interface
+QBCore.Functions.CreateCallback('qb-hackerjob:server:getMarketData', function(source, cb)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then
+        cb({ success = false, message = "Player not found" })
+        return
+    end
+    
+    -- Get current market data from economy system
+    local marketData = {
+        success = true,
+        data = {
+            services = {
+                plateLookup = {
+                    name = "Vehicle Database Access",
+                    min = 250,
+                    max = 1500,
+                    current = 500,
+                    demand = "low",
+                    demandText = "Low Demand"
+                },
+                phoneTracking = {
+                    name = "Phone Location Services",
+                    min = 1000,
+                    max = 8000,
+                    current = 2500,
+                    demand = "medium",
+                    demandText = "Medium Demand"
+                },
+                radioDecryption = {
+                    name = "Radio Signal Analysis",
+                    min = 800,
+                    max = 5000,
+                    current = 1800,
+                    demand = "high",
+                    demandText = "High Demand"
+                },
+                vehicleControl = {
+                    name = "Remote Vehicle Control",
+                    min = 2500,
+                    max = 15000,
+                    current = 5000,
+                    demand = "medium",
+                    demandText = "Medium Demand"
+                }
+            },
+            marketStatus = {
+                status = "Normal",
+                color = "green"
+            }
+        }
+    }
+    
+    cb(marketData)
+end)
+
+QBCore.Functions.CreateCallback('qb-hackerjob:server:getDashboardStats', function(source, cb)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then
+        cb({ success = false, message = "Player not found" })
+        return
+    end
+    
+    local citizenid = Player.PlayerData.citizenid
+    
+    -- Get today's earnings (this would need to be tracked in real implementation)
+    local todayEarnings = 0 -- Placeholder - should query from logs
+    
+    -- Get active contracts
+    local playerContracts = exports['qb-hackerjob']:GetPlayerContracts(citizenid)
+    local activeContracts = #playerContracts
+    
+    -- Calculate success rate (placeholder)
+    local successRate = 85 -- Placeholder - should calculate from logs
+    
+    local stats = {
+        success = true,
+        stats = {
+            todayEarnings = todayEarnings,
+            dailyLimit = 25000, -- Daily limit from economy config
+            activeContracts = activeContracts,
+            maxContracts = 2, -- Max contracts from config
+            successRate = successRate,
+            jobsToday = 0, -- Placeholder
+            recentContracts = playerContracts or {}
+        }
+    }
+    
+    cb(stats)
+end)
+
+QBCore.Functions.CreateCallback('qb-hackerjob:server:getProfileData', function(source, cb)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then
+        cb({ success = false, message = "Player not found" })
+        return
+    end
+    
+    -- Get player profile data
+    local profileData = {
+        success = true,
+        data = {
+            totalEarnings = 0, -- Should query from database
+            contractsCompleted = 0, -- Should query from database
+            averagePerformance = 85, -- Should calculate from minigame performance
+            successRate = 85, -- Should calculate from job success/failure
+            skills = {
+                {
+                    name = "Circuit Puzzles",
+                    level = "Beginner",
+                    progress = 20
+                },
+                {
+                    name = "Code Breaking",
+                    level = "Novice", 
+                    progress = 10
+                },
+                {
+                    name = "Pattern Recognition",
+                    level = "Beginner",
+                    progress = 15
+                },
+                {
+                    name = "Timing Challenges",
+                    level = "Novice",
+                    progress = 5
+                },
+                {
+                    name = "Hacking Rush",
+                    level = "Beginner",
+                    progress = 8
+                }
+            }
+        }
+    }
+    
+    cb(profileData)
+end)
+
 -- Server script initialized

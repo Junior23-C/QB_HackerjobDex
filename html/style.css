@@ -1180,12 +1180,734 @@ input:focus-visible,
     outline-offset: 2px;
 }
 
+/* Dashboard Stats Section */
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--spacing-md);
+    margin: 0 var(--spacing-md) var(--spacing-xl);
+}
+
+.stat-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    transition: all var(--transition-normal);
+}
+
+.stat-card:hover {
+    background: var(--bg-elevated);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.stat-icon {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+}
+
+.stat-card.earnings .stat-icon {
+    color: var(--accent-success);
+}
+
+.stat-card.contracts .stat-icon {
+    color: var(--accent-primary);
+}
+
+.stat-card.performance .stat-icon {
+    color: var(--accent-warning);
+}
+
+.stat-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-xs);
+}
+
+.stat-limit {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Contracts Preview Section */
+.contracts-preview {
+    margin: 0 var(--spacing-md) var(--spacing-xl);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.section-header h3 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+}
+
+.view-all-btn {
+    background: none;
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    color: var(--accent-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.view-all-btn:hover {
+    background: var(--bg-surface);
+    border-color: var(--accent-primary);
+}
+
+.contract-list {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-primary);
+    min-height: 120px;
+}
+
+.small {
+    height: var(--touch-target-sm);
+    font-size: var(--font-size-sm);
+    padding: 0 var(--spacing-md);
+}
+
+/* Tab Content Styles */
+.content-header {
+    margin-bottom: var(--spacing-xl);
+    text-align: center;
+}
+
+.content-header h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.content-header p {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+}
+
+/* Contract Navigation */
+.contract-nav {
+    display: flex;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xs);
+    margin-bottom: var(--spacing-xl);
+    border: 1px solid var(--border-primary);
+}
+
+.contract-nav-item {
+    flex: 1;
+    padding: var(--spacing-md);
+    text-align: center;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.contract-nav-item:hover {
+    color: var(--text-primary);
+}
+
+.contract-nav-item.active {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* Contract Filters */
+.contract-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.filter-btn {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.filter-btn.active {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+/* Contract Sections */
+.contract-section {
+    display: none;
+}
+
+.contract-section.active {
+    display: block;
+}
+
+.contracts-list {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-primary);
+    min-height: 200px;
+}
+
+/* Loading State */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2xl);
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border-primary);
+    border-top: 2px solid var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: var(--spacing-md);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Market Overview */
+.market-overview {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    border: 1px solid var(--border-primary);
+}
+
+.market-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+.indicator-light {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-success);
+}
+
+.indicator-light.green {
+    background: var(--accent-success);
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+}
+
+.indicator-light.yellow {
+    background: var(--accent-warning);
+    box-shadow: 0 0 8px rgba(255, 170, 0, 0.5);
+}
+
+.indicator-light.red {
+    background: var(--accent-danger);
+    box-shadow: 0 0 8px rgba(255, 51, 51, 0.5);
+}
+
+.last-update {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Pricing Section */
+.pricing-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.pricing-section h3 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* Trends Section */
+.trends-section h3 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.trends-chart {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-primary);
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chart-placeholder {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.chart-icon {
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+/* Profile Content */
+.level-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.level-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--border-primary);
+}
+
+.level-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+.level-name {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--accent-primary);
+    text-shadow: var(--glow-primary);
+}
+
+.level-number {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.xp-progress {
+    margin-bottom: var(--spacing-md);
+}
+
+.xp-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: var(--spacing-sm);
+}
+
+.xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: var(--radius-sm);
+    transition: width var(--transition-slow);
+}
+
+.xp-text {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Performance Metrics */
+.performance-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.performance-section h3 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.metric-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    transition: all var(--transition-normal);
+}
+
+.metric-card:hover {
+    background: var(--bg-elevated);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.metric-icon {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+}
+
+.metric-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.metric-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.metric-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+}
+
+/* Skills Section */
+.skills-section h3 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.skills-list {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-primary);
+}
+
+.skill-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.skill-item:last-child {
+    margin-bottom: 0;
+}
+
+.skill-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.skill-name {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.skill-level {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.skill-progress {
+    width: 100px;
+    flex-shrink: 0;
+}
+
+.skill-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.skill-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: var(--radius-sm);
+    transition: width var(--transition-slow);
+}
+
+/* Contract Cards */
+.contract-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    border: 1px solid var(--border-primary);
+    transition: all var(--transition-normal);
+}
+
+.contract-card:hover {
+    background: var(--bg-elevated);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.contract-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.contract-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+}
+
+.contract-reward {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--accent-success);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.contract-description {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-md);
+    line-height: 1.4;
+}
+
+.contract-objectives {
+    margin-bottom: var(--spacing-md);
+}
+
+.objective {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xs);
+    padding-left: var(--spacing-md);
+    position: relative;
+}
+
+.objective::before {
+    content: '•';
+    color: var(--accent-primary);
+    position: absolute;
+    left: 0;
+}
+
+.contract-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.contract-difficulty {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+}
+
+.accept-contract-btn {
+    background: var(--accent-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.accept-contract-btn:hover {
+    background: var(--interactive-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-small);
+}
+
+/* Pricing Cards */
+.pricing-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border-primary);
+    transition: all var(--transition-normal);
+}
+
+.pricing-card:hover {
+    background: var(--bg-elevated);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.pricing-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.service-name {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+}
+
+.price-range {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.current-price {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--accent-primary);
+    margin-bottom: var(--spacing-sm);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.demand-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.demand-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-success);
+}
+
+.demand-indicator.high .demand-dot {
+    background: var(--accent-danger);
+    box-shadow: 0 0 8px rgba(255, 51, 51, 0.5);
+}
+
+.demand-indicator.medium .demand-dot {
+    background: var(--accent-warning);
+    box-shadow: 0 0 8px rgba(255, 170, 0, 0.5);
+}
+
+.demand-indicator.low .demand-dot {
+    background: var(--accent-success);
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+}
+
+/* Contract Preview Items */
+.contract-preview-item {
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    border: 1px solid var(--border-primary);
+    transition: all var(--transition-fast);
+}
+
+.contract-preview-item:hover {
+    background: var(--bg-elevated);
+}
+
+.contract-preview-item:last-child {
+    margin-bottom: 0;
+}
+
+.contract-preview-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.contract-preview-progress {
+    font-size: var(--font-size-sm);
+    color: var(--accent-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.contract-preview-time {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
 /* Touch feedback */
 @media (hover: none) and (pointer: coarse) {
     .app-card:active,
     .nav-item:active,
     .primary-button:active,
-    .secondary-button:active {
+    .secondary-button:active,
+    .stat-card:active,
+    .metric-card:active,
+    .contract-card:active,
+    .pricing-card:active {
         transform: scale(0.98);
     }
 }

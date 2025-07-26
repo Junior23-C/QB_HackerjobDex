@@ -62,10 +62,53 @@
                     <div class="greeting">TERMINAL ACCESS</div>
                     <div class="hacker-profile">
                         <div class="profile-info">
-                            <div class="profile-name" id="hacker-level-name">Level 1 - Operator</div>
+                            <div class="profile-name" id="hacker-level-name">Level 1 - Script Kiddie</div>
                             <div class="profile-xp" id="hacker-xp-progress">XP: 0 / 100</div>
                         </div>
-                        <div class="profile-avatar">◉</div>
+                        <div class="profile-avatar">👤</div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Stats -->
+                <div class="dashboard-stats">
+                    <div class="stat-card earnings">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="today-earnings">$0</div>
+                            <div class="stat-label">Today's Earnings</div>
+                            <div class="stat-limit" id="earnings-limit">$0 / $25,000</div>
+                        </div>
+                    </div>
+                    <div class="stat-card contracts">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="active-contracts">0</div>
+                            <div class="stat-label">Active Contracts</div>
+                            <div class="stat-limit" id="contract-limit">0 / 2</div>
+                        </div>
+                    </div>
+                    <div class="stat-card performance">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="success-rate">--</div>
+                            <div class="stat-label">Success Rate</div>
+                            <div class="stat-limit" id="jobs-today">0 jobs today</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Contracts Preview -->
+                <div class="contracts-preview" id="contracts-preview">
+                    <div class="section-header">
+                        <h3>Active Contracts</h3>
+                        <button class="view-all-btn" data-tab="contracts">View All</button>
+                    </div>
+                    <div class="contract-list" id="home-contract-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <p>No active contracts</p>
+                            <button class="primary-button small" data-tab="contracts">Browse Contracts</button>
+                        </div>
                     </div>
                 </div>
 
@@ -102,16 +145,203 @@
                 <!-- Bottom Navigation -->
                 <div class="bottom-nav">
                     <div class="nav-item active" data-tab="home">
-                        <div class="nav-icon">●</div>
+                        <div class="nav-icon">🏠</div>
                         <div class="nav-label">HOME</div>
                     </div>
+                    <div class="nav-item" data-tab="contracts">
+                        <div class="nav-icon">📋</div>
+                        <div class="nav-label">CONTRACTS</div>
+                    </div>
                     <div class="nav-item" data-tab="tools">
-                        <div class="nav-icon">◆</div>
+                        <div class="nav-icon">🛠️</div>
                         <div class="nav-label">TOOLS</div>
                     </div>
-                    <div class="nav-item" data-tab="settings">
-                        <div class="nav-icon">◇</div>
-                        <div class="nav-label">CONFIG</div>
+                    <div class="nav-item" data-tab="market">
+                        <div class="nav-icon">📊</div>
+                        <div class="nav-label">MARKET</div>
+                    </div>
+                    <div class="nav-item" data-tab="profile">
+                        <div class="nav-icon">👤</div>
+                        <div class="nav-label">PROFILE</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contracts Tab Content -->
+            <div id="contracts-content" class="tab-content hidden">
+                <div class="content-header">
+                    <h2>Contract Board</h2>
+                    <p>Available jobs and active contracts</p>
+                </div>
+                
+                <!-- Contract Navigation -->
+                <div class="contract-nav">
+                    <div class="contract-nav-item active" data-section="available">Available</div>
+                    <div class="contract-nav-item" data-section="active">Active</div>
+                    <div class="contract-nav-item" data-section="history">History</div>
+                </div>
+                
+                <!-- Available Contracts -->
+                <div class="contract-section active" id="available-contracts">
+                    <div class="contract-filters">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="corporate">Corporate</button>
+                        <button class="filter-btn" data-filter="personal">Personal</button>
+                        <button class="filter-btn" data-filter="criminal">Criminal</button>
+                        <button class="filter-btn" data-filter="government">Government</button>
+                    </div>
+                    
+                    <div class="contracts-list" id="available-contracts-list">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading contracts...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Active Contracts -->
+                <div class="contract-section" id="active-contracts-section">
+                    <div class="contracts-list" id="active-contracts-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <p>No active contracts</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contract History -->
+                <div class="contract-section" id="contract-history">
+                    <div class="contracts-list" id="contract-history-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📜</div>
+                            <p>No completed contracts</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Tab Content -->
+            <div id="market-content" class="tab-content hidden">
+                <div class="content-header">
+                    <h2>Market Intelligence</h2>
+                    <p>Service pricing and demand analysis</p>
+                </div>
+                
+                <!-- Market Overview -->
+                <div class="market-overview">
+                    <div class="market-status">
+                        <div class="status-indicator" id="market-status">
+                            <div class="indicator-light green"></div>
+                            <span>Market: Normal</span>
+                        </div>
+                        <div class="last-update" id="market-update">Updated: Just now</div>
+                    </div>
+                </div>
+                
+                <!-- Service Pricing -->
+                <div class="pricing-section">
+                    <h3>Current Service Rates</h3>
+                    <div class="pricing-grid" id="pricing-grid">
+                        <!-- Pricing cards will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <!-- Market Trends -->
+                <div class="trends-section">
+                    <h3>Market Trends</h3>
+                    <div class="trends-chart" id="trends-chart">
+                        <div class="chart-placeholder">
+                            <div class="chart-icon">📈</div>
+                            <p>Market data loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Tab Content -->
+            <div id="profile-content" class="tab-content hidden">
+                <div class="content-header">
+                    <h2>Hacker Profile</h2>
+                    <p>Your skills, stats, and progression</p>
+                </div>
+                
+                <!-- Level Information -->
+                <div class="level-section">
+                    <div class="level-card">
+                        <div class="level-info">
+                            <div class="level-name" id="profile-level-name">Script Kiddie</div>
+                            <div class="level-number" id="profile-level">Level 1</div>
+                        </div>
+                        <div class="xp-progress">
+                            <div class="xp-bar">
+                                <div class="xp-fill" id="xp-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="xp-text" id="xp-text">0 / 100 XP</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Performance Metrics -->
+                <div class="performance-section">
+                    <h3>Performance Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-icon">💰</div>
+                            <div class="metric-info">
+                                <div class="metric-value" id="total-earnings">$0</div>
+                                <div class="metric-label">Total Earnings</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">📋</div>
+                            <div class="metric-info">
+                                <div class="metric-value" id="contracts-completed">0</div>
+                                <div class="metric-label">Contracts Completed</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">⭐</div>
+                            <div class="metric-info">
+                                <div class="metric-value" id="avg-performance">--</div>
+                                <div class="metric-label">Avg Performance</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">🎯</div>
+                            <div class="metric-info">
+                                <div class="metric-value" id="success-percentage">--</div>
+                                <div class="metric-label">Success Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Skill Progression -->
+                <div class="skills-section">
+                    <h3>Skill Mastery</h3>
+                    <div class="skills-list" id="skills-list">
+                        <div class="skill-item">
+                            <div class="skill-info">
+                                <div class="skill-name">Circuit Puzzles</div>
+                                <div class="skill-level">Beginner</div>
+                            </div>
+                            <div class="skill-progress">
+                                <div class="skill-bar">
+                                    <div class="skill-fill" style="width: 20%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="skill-item">
+                            <div class="skill-info">
+                                <div class="skill-name">Code Breaking</div>
+                                <div class="skill-level">Novice</div>
+                            </div>
+                            <div class="skill-progress">
+                                <div class="skill-bar">
+                                    <div class="skill-fill" style="width: 10%"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

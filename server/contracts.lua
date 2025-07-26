@@ -402,6 +402,20 @@ AddEventHandler('qb-hackerjob:server:operationCompleted', function(operationType
     UpdateContractProgress(citizenid, operationType)
 end)
 
+-- Get contracts for the new UI (combines available and player contracts)
+QBCore.Functions.CreateCallback('qb-hackerjob:server:getContracts', function(source, cb)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then
+        cb({ success = false, message = "Player not found" })
+        return
+    end
+    
+    cb({
+        success = true,
+        contracts = ContractSystem.activeContracts or {}
+    })
+end)
+
 -- Admin command to force refresh contracts
 QBCore.Commands.Add('refreshcontracts', 'Force refresh available contracts (Admin Only)', {}, false, function(source, args)
     local src = source

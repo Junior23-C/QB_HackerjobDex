@@ -465,6 +465,30 @@ function setupPhoneEventHandlers() {
             }
         });
 
+        // Contract navigation
+        $(document).on('click', '.contract-nav-item', function() {
+            const section = $(this).data('section');
+            if (section) {
+                switchContractSection(section);
+            }
+        });
+
+        // Contract filters
+        $(document).on('click', '.filter-btn', function() {
+            const filter = $(this).data('filter');
+            if (filter) {
+                filterContracts(filter);
+            }
+        });
+
+        // Tab navigation for new tabs
+        $(document).on('click', '[data-tab]', function() {
+            const tabName = $(this).data('tab');
+            if (tabName && ['contracts', 'market', 'profile'].includes(tabName)) {
+                switchBottomNav(tabName);
+            }
+        });
+
         // Primary buttons
         $(document).on('click', '#search-plate', function() {
             const plate = $('#plate-input').val().trim();
@@ -588,16 +612,393 @@ function switchBottomNav(tabName) {
     try {
         // Update nav items
         $('.nav-item').removeClass('active');
-        $(event.target).closest('.nav-item').addClass('active');
+        $(`.nav-item[data-tab="${tabName}"]`).addClass('active');
         
-        // Handle navigation
-        if (tabName === 'home') {
-            goToHome();
+        // Hide all tab content
+        $('.tab-content').addClass('hidden');
+        $('.app-screen').addClass('hidden');
+        
+        // Show appropriate content based on tab
+        switch (tabName) {
+            case 'home':
+                $('#home-screen').removeClass('hidden');
+                activeAppScreen = null;
+                break;
+            case 'contracts':
+                $('#contracts-content').removeClass('hidden');
+                loadContracts();
+                break;
+            case 'tools':
+                // Tools is handled by the existing app system
+                goToHome();
+                break;
+            case 'market':
+                $('#market-content').removeClass('hidden');
+                loadMarketData();
+                break;
+            case 'profile':
+                $('#profile-content').removeClass('hidden');
+                loadProfileData();
+                break;
+            default:
+                goToHome();
+                break;
         }
         
+        phoneLastUsed = Date.now();
         safeLogInfo('Switched bottom nav to: ' + tabName);
     } catch (err) {
         safeLogError('Error switching bottom nav: ' + err.message);
+    }
+}
+
+// Switch contract sections
+function switchContractSection(section) {
+    try {
+        // Update nav items
+        $('.contract-nav-item').removeClass('active');
+        $(`.contract-nav-item[data-section="${section}"]`).addClass('active');
+        
+        // Hide all sections
+        $('.contract-section').removeClass('active');
+        
+        // Show selected section
+        if (section === 'available') {
+            $('#available-contracts').addClass('active');
+        } else if (section === 'active') {
+            $('#active-contracts-section').addClass('active');
+        } else if (section === 'history') {
+            $('#contract-history').addClass('active');
+        }
+        
+        safeLogInfo('Switched to contract section: ' + section);
+    } catch (err) {
+        safeLogError('Error switching contract section: ' + err.message);
+    }
+}
+
+// Filter contracts
+function filterContracts(filter) {
+    try {
+        // Update filter buttons
+        $('.filter-btn').removeClass('active');
+        $(`.filter-btn[data-filter="${filter}"]`).addClass('active');
+        
+        // Apply filter logic here
+        // This would filter the contracts based on the selected category
+        
+        safeLogInfo('Applied contract filter: ' + filter);
+    } catch (err) {
+        safeLogError('Error filtering contracts: ' + err.message);
+    }
+}
+
+// Load contracts data
+function loadContracts() {
+    try {
+        // Request contracts from server
+        safePost('https://qb-hackerjob/getContracts', 
+            {},
+            function(response) {
+                if (response && response.success && response.contracts) {
+                    displayContracts(response.contracts);
+                } else {
+                    $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">📋</div><p>No contracts available</p></div>');
+                }
+            },
+            function(error) {
+                safeLogError('Failed to load contracts: ' + error.message);
+                $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">❌</div><p>Failed to load contracts</p></div>');
+            }
+        );
+    } catch (err) {
+        safeLogError('Error loading contracts: ' + err.message);
+    }
+}
+
+// Display contracts
+function displayContracts(contracts) {
+    try {
+        const container = $('#available-contracts-list');
+        container.empty();
+        
+        if (!contracts || contracts.length === 0) {
+            container.html('<div class="empty-state"><div class="empty-icon">📋</div><p>No contracts available</p></div>');
+            return;
+        }
+        
+        // Display each contract
+        contracts.forEach(contract => {
+            const contractHtml = `
+                <div class="contract-card" data-contract-id="${contract.id}">
+                    <div class="contract-header">
+                        <div class="contract-title">${contract.title}</div>
+                        <div class="contract-reward">$${contract.reward}</div>
+                    </div>
+                    <div class="contract-description">${contract.description}</div>
+                    <div class="contract-objectives">
+                        ${contract.objectives.map(obj => `<div class="objective">${obj.description}</div>`).join('')}
+                    </div>
+                    <div class="contract-footer">
+                        <div class="contract-difficulty">Difficulty: ${contract.difficulty}</div>
+                        <button class="accept-contract-btn" data-contract-id="${contract.id}">Accept</button>
+                    </div>
+                </div>
+            `;
+            container.append(contractHtml);
+        });
+        
+        // Add click handlers for contract acceptance
+        $('.accept-contract-btn').on('click', function() {
+            const contractId = $(this).data('contract-id');
+            acceptContract(contractId);
+        });
+        
+    } catch (err) {
+        safeLogError('Error displaying contracts: ' + err.message);
+    }
+}
+
+// Accept a contract
+function acceptContract(contractId) {
+    try {
+        safePost('https://qb-hackerjob/acceptContract',
+            { contractId: contractId },
+            function(response) {
+                if (response && response.success) {
+                    safeLogInfo('Contract accepted successfully');
+                    loadContracts(); // Reload contracts
+                    updateDashboardStats(); // Update stats
+                } else {
+                    safeLogError('Failed to accept contract: ' + (response ? response.message : 'Unknown error'));
+                }
+            },
+            function(error) {
+                safeLogError('Error accepting contract: ' + error.message);
+            }
+        );
+    } catch (err) {
+        safeLogError('Error in acceptContract: ' + err.message);
+    }
+}
+
+// Load market data
+function loadMarketData() {
+    try {
+        safePost('https://qb-hackerjob/getMarketData',
+            {},
+            function(response) {
+                if (response && response.success) {
+                    displayMarketData(response.data);
+                } else {
+                    $('#pricing-grid').html('<div class="empty-state"><div class="empty-icon">📊</div><p>Market data unavailable</p></div>');
+                }
+            },
+            function(error) {
+                safeLogError('Failed to load market data: ' + error.message);
+                $('#pricing-grid').html('<div class="empty-state"><div class="empty-icon">❌</div><p>Failed to load market data</p></div>');
+            }
+        );
+    } catch (err) {
+        safeLogError('Error loading market data: ' + err.message);
+    }
+}
+
+// Display market data
+function displayMarketData(data) {
+    try {
+        const pricingGrid = $('#pricing-grid');
+        pricingGrid.empty();
+        
+        if (!data || !data.services) {
+            pricingGrid.html('<div class="empty-state"><div class="empty-icon">📊</div><p>No pricing data available</p></div>');
+            return;
+        }
+        
+        // Display each service pricing
+        Object.keys(data.services).forEach(service => {
+            const serviceData = data.services[service];
+            const pricingCard = `
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <div class="service-name">${serviceData.name}</div>
+                        <div class="price-range">$${serviceData.min} - $${serviceData.max}</div>
+                    </div>
+                    <div class="current-price">Current: $${serviceData.current}</div>
+                    <div class="demand-indicator ${serviceData.demand}">
+                        <div class="demand-dot"></div>
+                        <span>${serviceData.demandText}</span>
+                    </div>
+                </div>
+            `;
+            pricingGrid.append(pricingCard);
+        });
+        
+        // Update market status
+        if (data.marketStatus) {
+            $('#market-status span').text(`Market: ${data.marketStatus.status}`);
+            $('#market-status .indicator-light').removeClass('green yellow red').addClass(data.marketStatus.color);
+        }
+        
+    } catch (err) {
+        safeLogError('Error displaying market data: ' + err.message);
+    }
+}
+
+// Load profile data
+function loadProfileData() {
+    try {
+        // Update level information
+        $('#profile-level-name').text(currentLevelName);
+        $('#profile-level').text(`Level ${currentLevel}`);
+        
+        // Calculate XP percentage
+        const xpPercentage = Math.min((currentXP / nextLevelXP) * 100, 100);
+        $('#xp-fill').css('width', `${xpPercentage}%`);
+        $('#xp-text').text(`${currentXP} / ${nextLevelXP} XP`);
+        
+        // Request additional profile data from server
+        safePost('https://qb-hackerjob/getProfileData',
+            {},
+            function(response) {
+                if (response && response.success) {
+                    updateProfileMetrics(response.data);
+                } else {
+                    safeLogError('Failed to get profile data: ' + (response ? response.message : 'Unknown error'));
+                }
+            },
+            function(error) {
+                safeLogError('Error loading profile data: ' + error.message);
+            }
+        );
+    } catch (err) {
+        safeLogError('Error loading profile data: ' + err.message);
+    }
+}
+
+// Update profile metrics
+function updateProfileMetrics(data) {
+    try {
+        if (data.totalEarnings !== undefined) {
+            $('#total-earnings').text(`$${data.totalEarnings.toLocaleString()}`);
+        }
+        if (data.contractsCompleted !== undefined) {
+            $('#contracts-completed').text(data.contractsCompleted);
+        }
+        if (data.averagePerformance !== undefined) {
+            $('#avg-performance').text(`${data.averagePerformance}%`);
+        }
+        if (data.successRate !== undefined) {
+            $('#success-percentage').text(`${data.successRate}%`);
+        }
+        
+        // Update skills if provided
+        if (data.skills && Array.isArray(data.skills)) {
+            updateSkillsDisplay(data.skills);
+        }
+    } catch (err) {
+        safeLogError('Error updating profile metrics: ' + err.message);
+    }
+}
+
+// Update skills display
+function updateSkillsDisplay(skills) {
+    try {
+        const skillsList = $('#skills-list');
+        skillsList.empty();
+        
+        skills.forEach(skill => {
+            const skillHtml = `
+                <div class="skill-item">
+                    <div class="skill-info">
+                        <div class="skill-name">${skill.name}</div>
+                        <div class="skill-level">${skill.level}</div>
+                    </div>
+                    <div class="skill-progress">
+                        <div class="skill-bar">
+                            <div class="skill-fill" style="width: ${skill.progress}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            skillsList.append(skillHtml);
+        });
+    } catch (err) {
+        safeLogError('Error updating skills display: ' + err.message);
+    }
+}
+
+// Update dashboard stats
+function updateDashboardStats() {
+    try {
+        safePost('https://qb-hackerjob/getDashboardStats',
+            {},
+            function(response) {
+                if (response && response.success) {
+                    const stats = response.stats;
+                    
+                    if (stats.todayEarnings !== undefined) {
+                        $('#today-earnings').text(`$${stats.todayEarnings.toLocaleString()}`);
+                        $('#earnings-limit').text(`$${stats.todayEarnings.toLocaleString()} / $${stats.dailyLimit.toLocaleString()}`);
+                    }
+                    
+                    if (stats.activeContracts !== undefined) {
+                        $('#active-contracts').text(stats.activeContracts);
+                        $('#contract-limit').text(`${stats.activeContracts} / ${stats.maxContracts}`);
+                    }
+                    
+                    if (stats.successRate !== undefined) {
+                        $('#success-rate').text(`${stats.successRate}%`);
+                    }
+                    
+                    if (stats.jobsToday !== undefined) {
+                        $('#jobs-today').text(`${stats.jobsToday} jobs today`);
+                    }
+                    
+                    // Update contracts preview
+                    if (stats.recentContracts && stats.recentContracts.length > 0) {
+                        displayContractsPreview(stats.recentContracts);
+                    }
+                }
+            },
+            function(error) {
+                safeLogError('Error loading dashboard stats: ' + error.message);
+            }
+        );
+    } catch (err) {
+        safeLogError('Error updating dashboard stats: ' + err.message);
+    }
+}
+
+// Display contracts preview on home screen
+function displayContractsPreview(contracts) {
+    try {
+        const container = $('#home-contract-list');
+        container.empty();
+        
+        if (!contracts || contracts.length === 0) {
+            container.html(`
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <p>No active contracts</p>
+                    <button class="primary-button small" data-tab="contracts">Browse Contracts</button>
+                </div>
+            `);
+            return;
+        }
+        
+        contracts.forEach(contract => {
+            const contractPreview = `
+                <div class="contract-preview-item">
+                    <div class="contract-preview-title">${contract.title}</div>
+                    <div class="contract-preview-progress">${contract.progress}% complete</div>
+                    <div class="contract-preview-time">${contract.timeRemaining} remaining</div>
+                </div>
+            `;
+            container.append(contractPreview);
+        });
+    } catch (err) {
+        safeLogError('Error displaying contracts preview: ' + err.message);
     }
 }
 
@@ -741,6 +1142,8 @@ function openPhone(data) {
         // Safe stats display update
         try {
             updateHackerStatsDisplay(currentLevel, currentXP, nextLevelXP, currentLevelName);
+            // Load dashboard stats when phone opens
+            updateDashboardStats();
         } catch (err) {
             safeLogError('Error updating hacker stats display: ' + err.message);
         }
