@@ -35,7 +35,7 @@ Config.Battery = {
     enabled = true, -- Enable/disable battery system
     maxCharge = 100, -- Maximum battery percentage
     drainRate = 0.5, -- Base battery drain rate per operation (percentage)
-    idleDrainRate = 0.1, -- Battery drain rate when laptop is idle (percentage per minute)
+    idleDrainRate = 2.5, -- Battery drain rate when laptop is idle (percentage per minute)
     operationDrainRates = { -- Different drain rates for different operations
         plateLookup = 1.5,      -- Medium consumption
         scanning = 0.8,         -- Light consumption
@@ -53,16 +53,15 @@ Config.Battery = {
     chargerItemName = "laptop_charger", -- Item name for laptop charger
     chargerItemPrice = 2500, -- Price of laptop charger
     
-    -- Realistic charging configuration (1 hour total time)
-    chargeRate = 0.5, -- Default charge rate (percentage per tick)
+    -- Realistic charging configuration (20 minutes total time)
+    chargeRate = 1.67, -- Default charge rate for 50-100% (percentage per 30s tick)
     chargeInterval = 30000, -- Charging interval in ms (30 seconds)
-    fastChargeRate = 1.5, -- Rate of fast charging when battery is below 30% (percentage per tick)
-    slowChargeRate = 0.3, -- Rate of trickle charging when battery is above 80% (percentage per tick)
+    fastChargeRate = 5.0, -- Rate of fast charging for 0-50% (percentage per 30s tick)
+    slowChargeRate = 1.67, -- Rate of slow charging for 50-100% (percentage per 30s tick)
     
-    -- This configuration will result in approximately 1 hour charge time:
-    -- First 30%: ~12 minutes (0.5% every 30 seconds × 3 = 1.5% per 30 seconds)
-    -- 30-80%: ~33 minutes (0.5% every 30 seconds)
-    -- 80-100%: ~17 minutes (0.3% every 30 seconds)
+    -- This configuration will result in approximately 20 minute charge time:
+    -- 0-50%: ~5 minutes (5.0% every 30 seconds)
+    -- 50-100%: ~15 minutes (1.67% every 30 seconds)
 }
 
 -- Plate Lookup Settings

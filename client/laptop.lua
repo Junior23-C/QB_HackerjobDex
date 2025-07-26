@@ -65,6 +65,16 @@ function OpenHackerLaptop(stats)
         end
     end
     
+    -- Start phone animation
+    local playerPed = PlayerPedId()
+    if not IsEntityPlayingAnim(playerPed, "cellphone@", "cellphone_text_read_base", 3) then
+        RequestAnimDict("cellphone@")
+        while not HasAnimDictLoaded("cellphone@") do
+            Wait(0)
+        end
+        TaskPlayAnim(playerPed, "cellphone@", "cellphone_text_read_base", 2.0, 3.0, -1, 49, 0, false, false, false)
+    end
+    
     laptopOpen = true
     
     -- Open NUI
@@ -92,6 +102,12 @@ end
 function CloseLaptop()
     if not laptopOpen then
         return
+    end
+    
+    -- Stop phone animation
+    local playerPed = PlayerPedId()
+    if IsEntityPlayingAnim(playerPed, "cellphone@", "cellphone_text_read_base", 3) then
+        StopAnimTask(playerPed, "cellphone@", "cellphone_text_read_base", 1.0)
     end
     
     laptopOpen = false
@@ -144,12 +160,12 @@ function StartBatteryDrain()
     
     batteryDrainThread = CreateThread(function()
         while laptopOpen and batteryLevel > 0 and not isCharging do
-            -- Calculate drain interval: 0.1% per minute = 0.1% per 60000ms
-            -- So for 0.1% drain, we wait 60000ms
+            -- Calculate drain interval: 2.5% per minute = 2.5% per 60000ms
+            -- So for 2.5% drain, we wait 60000ms
             local drainInterval = 60000 -- 1 minute
             Wait(drainInterval)
             
-            -- Apply idle drain rate (0.1% per minute)
+            -- Apply idle drain rate (2.5% per minute)
             batteryLevel = math.max(0, batteryLevel - Config.Battery.idleDrainRate)
             
             -- Update UI
@@ -216,27 +232,32 @@ RegisterNetEvent('qb-hackerjob:client:toggleCharger', function()
     
     if isCharging then
         QBCore.Functions.Notify("Laptop charger connected", "success")
+        print("^2[qb-hackerjob:laptop] ^7Starting charging process - Battery: " .. batteryLevel .. "%")
         
-        -- Start charging
+        -- Start realistic charging
         CreateThread(function()
             while isCharging and batteryLevel < 100 do
-                Wait(Config.Battery.chargeInterval)
+                Wait(Config.Battery.chargeInterval) -- Default: 30 seconds
                 
-                -- Determine charge rate based on battery level
+                if not isCharging then break end -- Double check charging status
+                
+                -- Determine charge rate based on battery level (realistic charging curve)
                 local chargeRate
-                if batteryLevel < 30 then
-                    chargeRate = Config.Battery.fastChargeRate
-                elseif batteryLevel >= 80 then
-                    chargeRate = Config.Battery.slowChargeRate
+                if batteryLevel < 50 then
+                    chargeRate = Config.Battery.fastChargeRate -- 5.0% per 30s = 5 minutes for 0-50%
                 else
-                    chargeRate = Config.Battery.chargeRate
+                    chargeRate = Config.Battery.slowChargeRate -- 1.67% per 30s = 15 minutes for 50-100%
                 end
                 
+                local oldLevel = batteryLevel
                 batteryLevel = math.min(100, batteryLevel + chargeRate)
+                
+                print("^2[qb-hackerjob:laptop] ^7Charging: " .. oldLevel .. "% -> " .. batteryLevel .. "% (+" .. chargeRate .. "%)")
                 
                 -- Save battery level
                 SetResourceKvpFloat('hackerjob_battery', batteryLevel)
                 
+                -- Update UI if laptop is open
                 if laptopOpen then
                     SendNUIMessage({
                         action = "updateBattery",
@@ -245,14 +266,18 @@ RegisterNetEvent('qb-hackerjob:client:toggleCharger', function()
                     })
                 end
                 
+                -- Check if fully charged
                 if batteryLevel >= 100 then
                     QBCore.Functions.Notify("Laptop fully charged", "success")
+                    print("^2[qb-hackerjob:laptop] ^7Battery fully charged")
                     break
                 end
             end
+            print("^2[qb-hackerjob:laptop] ^7Charging thread ended")
         end)
     else
         QBCore.Functions.Notify("Laptop charger disconnected", "primary")
+        print("^2[qb-hackerjob:laptop] ^7Charger disconnected - Battery: " .. batteryLevel .. "%")
         
         if laptopOpen then
             SendNUIMessage({
@@ -261,7 +286,7 @@ RegisterNetEvent('qb-hackerjob:client:toggleCharger', function()
                 charging = false
             })
             
-            -- Resume battery drain
+            -- Resume battery drain if laptop is open
             StartBatteryDrain()
         end
     end
