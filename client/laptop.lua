@@ -207,20 +207,23 @@ RegisterNetEvent('qb-hackerjob:client:replaceBattery', function()
         anim = "machinic_loop_mechandplayer",
         flags = 49,
     }, {}, {}, function() -- Done
+        -- Ensure battery is at 100% (should already be set in NUI callback)
         batteryLevel = 100
         SetResourceKvpFloat('hackerjob_battery', batteryLevel)
         
         if laptopOpen then
             SendNUIMessage({
                 action = "updateBattery",
-                batteryLevel = batteryLevel
+                batteryLevel = batteryLevel,
+                charging = isCharging
             })
         end
         
-        QBCore.Functions.Notify("Battery replaced successfully", "success")
+        QBCore.Functions.Notify("Battery replaced successfully - 100% charge", "success")
         TriggerServerEvent('qb-hackerjob:server:removeBattery')
+        print("^2[qb-hackerjob:laptop] ^7Battery replacement completed - Battery: " .. batteryLevel .. "%")
     end, function() -- Cancel
-        QBCore.Functions.Notify("Cancelled", "error")
+        QBCore.Functions.Notify("Battery replacement cancelled", "error")
     end)
 end)
 
@@ -314,9 +317,28 @@ RegisterNUICallback('replaceBattery', function(_, cb)
     -- Check if player has battery item
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
         if hasItem then
-            -- Trigger the replace battery event
+            -- Set battery to 100% immediately (new battery)
+            batteryLevel = 100
+            SetResourceKvpFloat('hackerjob_battery', batteryLevel)
+            
+            -- Update UI immediately
+            if laptopOpen then
+                SendNUIMessage({
+                    action = "updateBattery",
+                    batteryLevel = batteryLevel,
+                    charging = isCharging
+                })
+            end
+            
+            -- Trigger the replace battery event for animation
             TriggerEvent('qb-hackerjob:client:replaceBattery')
-            cb({success = true, message = "Battery replacement started"})
+            
+            cb({
+                success = true, 
+                message = "Battery replacement started",
+                batteryLevel = 100, -- New battery is full
+                charging = isCharging
+            })
         else
             cb({success = false, message = "You don't have a replacement battery"})
         end
@@ -334,9 +356,76 @@ RegisterNUICallback('toggleCharger', function(_, cb)
     -- Check if player has charger item
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
         if hasItem then
-            -- Trigger the charger toggle event
-            TriggerEvent('qb-hackerjob:client:toggleCharger')
-            cb({success = true, message = "Charger toggled"})
+            -- Toggle charger state directly (inline instead of event)
+            isCharging = not isCharging
+            
+            if isCharging then
+                QBCore.Functions.Notify("Laptop charger connected", "success")
+                print("^2[qb-hackerjob:laptop] ^7Starting charging process - Battery: " .. batteryLevel .. "%")
+                
+                -- Start realistic charging
+                CreateThread(function()
+                    while isCharging and batteryLevel < 100 do
+                        Wait(Config.Battery.chargeInterval) -- Default: 30 seconds
+                        
+                        if not isCharging then break end -- Double check charging status
+                        
+                        -- Determine charge rate based on battery level (realistic charging curve)
+                        local chargeRate
+                        if batteryLevel < 50 then
+                            chargeRate = Config.Battery.fastChargeRate -- 5.0% per 30s = 5 minutes for 0-50%
+                        else
+                            chargeRate = Config.Battery.slowChargeRate -- 1.67% per 30s = 15 minutes for 50-100%
+                        end
+                        
+                        local oldLevel = batteryLevel
+                        batteryLevel = math.min(100, batteryLevel + chargeRate)
+                        
+                        print("^2[qb-hackerjob:laptop] ^7Charging: " .. oldLevel .. "% -> " .. batteryLevel .. "% (+" .. chargeRate .. "%)")
+                        
+                        -- Save battery level
+                        SetResourceKvpFloat('hackerjob_battery', batteryLevel)
+                        
+                        -- Update UI if laptop is open
+                        if laptopOpen then
+                            SendNUIMessage({
+                                action = "updateBattery",
+                                batteryLevel = batteryLevel,
+                                charging = true
+                            })
+                        end
+                        
+                        -- Check if fully charged
+                        if batteryLevel >= 100 then
+                            QBCore.Functions.Notify("Laptop fully charged", "success")
+                            print("^2[qb-hackerjob:laptop] ^7Battery fully charged")
+                            break
+                        end
+                    end
+                    print("^2[qb-hackerjob:laptop] ^7Charging thread ended")
+                end)
+            else
+                QBCore.Functions.Notify("Laptop charger disconnected", "primary")
+                print("^2[qb-hackerjob:laptop] ^7Charger disconnected - Battery: " .. batteryLevel .. "%")
+                
+                if laptopOpen then
+                    SendNUIMessage({
+                        action = "updateBattery",
+                        batteryLevel = batteryLevel,
+                        charging = false
+                    })
+                    
+                    -- Resume battery drain if laptop is open
+                    StartBatteryDrain()
+                end
+            end
+            
+            cb({
+                success = true, 
+                message = isCharging and "Charger connected" or "Charger disconnected",
+                batteryLevel = batteryLevel,
+                charging = isCharging
+            })
         else
             cb({success = false, message = "You don't have a laptop charger"})
         end

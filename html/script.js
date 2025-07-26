@@ -943,7 +943,8 @@ function createBatteryIndicator() {
             button.removeClass('disabled');
 
             if (response.success) {
-                updateBatteryDisplay(response.batteryLevel);
+                updateBatteryDisplay(response.batteryLevel, response.charging);
+                console.log('Battery replaced successfully - new level:', response.batteryLevel);
             } else {
                 // Show error message
                 const errorMsg = response.message || "Failed to replace battery";
@@ -1002,8 +1003,18 @@ function createBatteryIndicator() {
 function updateBatteryDisplay(level, charging) {
     console.log('Updating battery display:', { level: level, charging: charging });
 
-    batteryLevel = level;
-    isCharging = charging;
+    // Validate inputs and use current values if invalid
+    if (typeof level !== 'number' || isNaN(level)) {
+        console.warn('Invalid battery level received:', level, 'using current:', batteryLevel);
+        level = batteryLevel;
+    }
+    if (typeof charging !== 'boolean') {
+        console.warn('Invalid charging status received:', charging, 'using current:', isCharging);
+        charging = isCharging;
+    }
+
+    batteryLevel = Math.max(0, Math.min(100, level)); // Clamp between 0-100
+    isCharging = Boolean(charging);
 
     // Make sure we have the battery UI elements
     if ($('#battery-indicator').length === 0) {
