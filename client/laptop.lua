@@ -25,9 +25,42 @@
     and proper charging behavior when using the laptop's features.
 ]]
 
--- Enhanced QBCore setup and callback handling with error handling
-local QBCore = exports['qb-core']:GetCoreObject()
+-- Enhanced QBCore setup with proper initialization timing
+local QBCore = nil
 local laptopOpen = false
+
+-- Initialize QBCore with proper timing and error handling
+local function InitializeQBCore()
+    if QBCore then
+        return QBCore
+    end
+    
+    -- Wait for QBCore to be available
+    local attempts = 0
+    local maxAttempts = 50
+    
+    while not QBCore and attempts < maxAttempts do
+        local success, core = pcall(function()
+            return exports['qb-core']:GetCoreObject()
+        end)
+        
+        if success and core then
+            QBCore = core
+            print("^2[qb-hackerjob:laptop] ^7QBCore initialized successfully after " .. attempts .. " attempts")
+            return QBCore
+        end
+        
+        attempts = attempts + 1
+        Citizen.Wait(100)
+    end
+    
+    if not QBCore then
+        print("^1[qb-hackerjob:laptop] ^7CRITICAL: Failed to initialize QBCore after " .. maxAttempts .. " attempts")
+        return nil
+    end
+    
+    return QBCore
+end
 
 -- Error handling configuration
 local ErrorConfig = {
@@ -217,8 +250,15 @@ local function hasRequiredJob()
         return true 
     end
     
+    -- Ensure QBCore is initialized
+    local core = InitializeQBCore()
+    if not core then
+        SafeLogError('QBCore not initialized for job check')
+        return false
+    end
+    
     local jobCheckSuccess, hasJob, jobError = pcall(function()
-        local Player = QBCore.Functions.GetPlayerData()
+        local Player = core.Functions.GetPlayerData()
         if not Player then 
             return false, "Player data not found"
         end
@@ -754,28 +794,45 @@ end
 
 -- Used for usable item
 -- Enhanced laptop opening event with job/battery checks and XP fetching
-RegisterNetEvent('qb-hackerjob:client:openLaptop')
-AddEventHandler('qb-hackerjob:client:openLaptop', function()
-    print("^2[qb-hackerjob] ^7========== LAPTOP OPEN EVENT TRIGGERED ==========")
-    print("^2[qb-hackerjob] ^7Player source: " .. tostring(GetPlayerServerId(PlayerId())))
-    print("^2[qb-hackerjob] ^7QBCore available: " .. tostring(QBCore ~= nil))
-    print("^2[qb-hackerjob] ^7Config available: " .. tostring(Config ~= nil))
+local function RegisterLaptopEvents()
+    print("^2[qb-hackerjob:laptop] ^7Registering laptop events...")
     
-    -- Job check using the same callback as main.lua with retry mechanism
-    local function AttemptJobCheck(retryCount)
-        retryCount = retryCount or 0
+    -- Ensure QBCore is initialized before registering events
+    local core = InitializeQBCore()
+    if not core then
+        print("^1[qb-hackerjob:laptop] ^7Cannot register events - QBCore not initialized")
+        return false
+    end
+    
+    RegisterNetEvent('qb-hackerjob:client:openLaptop')
+    AddEventHandler('qb-hackerjob:client:openLaptop', function()
+        print("^2[qb-hackerjob] ^7========== LAPTOP OPEN EVENT TRIGGERED ==========")
+        print("^2[qb-hackerjob] ^7Player source: " .. tostring(GetPlayerServerId(PlayerId())))
+        print("^2[qb-hackerjob] ^7QBCore available: " .. tostring(QBCore ~= nil))
+        print("^2[qb-hackerjob] ^7Config available: " .. tostring(Config ~= nil))
+        
+        -- Verify QBCore is still available
+        local core = InitializeQBCore()
+        if not core then
+            print("^1[qb-hackerjob] ^7QBCore not available during event handling")
+            return
+        end
+        
+        -- Job check using the same callback as main.lua with retry mechanism
+        local function AttemptJobCheck(retryCount)
+            retryCount = retryCount or 0
         local maxRetries = 3
         
         if retryCount >= maxRetries then
             print("^1[qb-hackerjob] ^7Job check failed after " .. maxRetries .. " attempts")
-            QBCore.Functions.Notify('Unable to verify permissions. Try again later.', "error")
+            core.Functions.Notify('Unable to verify permissions. Try again later.', "error")
             return
         end
         
         print("^3[qb-hackerjob] ^7Attempting job check (attempt " .. (retryCount + 1) .. "/" .. maxRetries .. ")")
         print("^3[qb-hackerjob] ^7About to call TriggerCallback for hasHackerJob")
         
-        QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
+        core.Functions.TriggerCallback('qb-hackerjob:server:hasHackerJob', function(hasJob)
             print("^3[qb-hackerjob] ^7Callback response received: " .. tostring(hasJob))
             if hasJob == nil then
                 print("^1[qb-hackerjob] ^7Received nil response from job check, retrying...")
@@ -785,7 +842,7 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             end
             
             if not hasJob then
-                QBCore.Functions.Notify('You don\'t know how to use this device', "error")
+                core.Functions.Notify('You don\'t know how to use this device', "error")
                 return
             end
             
@@ -807,7 +864,7 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
         -- Moved the laptop opening logic to a separate function
         
         -- Get updated hacker stats before opening NUI (use both methods for reliability)
-        QBCore.Functions.TriggerCallback('hackerjob:getStats', function(stats)
+        core.Functions.TriggerCallback('hackerjob:getStats', function(stats)
             print("^2[qb-hackerjob] ^7Server callback returned stats:", json.encode(stats))
             
             -- Also get local metadata as fallback
@@ -834,12 +891,12 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             local level, xp, nextLevelXP = finalStats.level, finalStats.xp, finalStats.nextLevelXP
             -- Battery check
             if Config.Battery.enabled then
-                local PlayerData = QBCore.Functions.GetPlayerData()
+                local PlayerData = core.Functions.GetPlayerData()
                 local batteryLevel = PlayerData.metadata.laptopBattery or Config.Battery.maxCharge
                 
                 -- Check if battery is critically low
                 if batteryLevel <= Config.Battery.criticalBatteryThreshold then
-                    QBCore.Functions.Notify('Laptop battery critical! Needs charging or replacement', "error")
+                    core.Functions.Notify('Laptop battery critical! Needs charging or replacement', "error")
                     return
                 end
             end
@@ -852,7 +909,7 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
             
             if not success then
                 print("^1[qb-hackerjob] ^7Error opening laptop: " .. tostring(err))
-                QBCore.Functions.Notify("Error opening laptop", "error")
+                core.Functions.Notify("Error opening laptop", "error")
             else
                 print("^2[qb-hackerjob] ^7OpenHackerLaptop called successfully")
             end
@@ -861,27 +918,31 @@ AddEventHandler('qb-hackerjob:client:openLaptop', function()
     
     -- Start the job check process
     AttemptJobCheck()
-end)
+    end)
+    
+    -- Event handler for laptop opening with XP data
+    RegisterNetEvent('qb-hackerjob:client:openLaptopWithXP')
+    AddEventHandler('qb-hackerjob:client:openLaptopWithXP', function(xpData)
+        print("^2[qb-hackerjob] ^7openLaptopWithXP event triggered with data:", json.encode(xpData))
+        OpenHackerLaptop(xpData)
+    end)
 
--- Event handler for laptop opening with XP data
-RegisterNetEvent('qb-hackerjob:client:openLaptopWithXP')
-AddEventHandler('qb-hackerjob:client:openLaptopWithXP', function(xpData)
-    print("^2[qb-hackerjob] ^7openLaptopWithXP event triggered with data:", json.encode(xpData))
-    OpenHackerLaptop(xpData)
-end)
+    -- Battery management events
+    RegisterNetEvent('qb-hackerjob:client:replaceBattery')
+    AddEventHandler('qb-hackerjob:client:replaceBattery', function()
+        print("^2[qb-hackerjob] ^7replaceBattery event triggered")
+        replaceBattery()
+    end)
 
--- Battery management events
-RegisterNetEvent('qb-hackerjob:client:replaceBattery')
-AddEventHandler('qb-hackerjob:client:replaceBattery', function()
-    print("^2[qb-hackerjob] ^7replaceBattery event triggered")
-    replaceBattery()
-end)
-
-RegisterNetEvent('qb-hackerjob:client:toggleCharger')
-AddEventHandler('qb-hackerjob:client:toggleCharger', function()
-    print("^2[qb-hackerjob] ^7toggleCharger event triggered")
-    toggleCharging()
-end)
+    RegisterNetEvent('qb-hackerjob:client:toggleCharger')
+    AddEventHandler('qb-hackerjob:client:toggleCharger', function()
+        print("^2[qb-hackerjob] ^7toggleCharger event triggered")
+        toggleCharging()
+    end)
+    
+    print("^2[qb-hackerjob:laptop] ^7All laptop events registered successfully")
+    return true
+end
 
 -- Function to update the last interaction time
 local function updateLastInteraction()
@@ -1157,15 +1218,33 @@ local function saveBatteryLevel()
     print("^2[qb-hackerjob] ^7Saved battery level to metadata: " .. batteryLevel .. "%")
 end
 
--- Initialize battery on resource start
+-- Initialize events and battery on resource start
 AddEventHandler('onClientResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     
-    -- Wait for player data to be available
+    print("^2[qb-hackerjob:laptop] ^7Starting laptop client initialization...")
+    
+    -- Initialize events first
     Citizen.CreateThread(function()
-        while not QBCore.Functions.GetPlayerData().citizenid do
+        local eventRegSuccess = RegisterLaptopEvents()
+        if not eventRegSuccess then
+            print("^1[qb-hackerjob:laptop] ^7CRITICAL: Failed to register events")
+            return
+        end
+        
+        -- Ensure QBCore is initialized
+        local core = InitializeQBCore()
+        if not core then
+            print("^1[qb-hackerjob:laptop] ^7CRITICAL: QBCore failed to initialize")
+            return
+        end
+        
+        -- Wait for player data to be available
+        while not core.Functions.GetPlayerData().citizenid do
             Citizen.Wait(100)
         end
+        
+        print("^2[qb-hackerjob:laptop] ^7Player data available, initializing battery system...")
         
         loadBatteryLevel()
         
@@ -1183,6 +1262,8 @@ AddEventHandler('onClientResourceStart', function(resourceName)
                 Citizen.Wait(30000) -- Check every 30 seconds instead of constant loop
             end
         end)
+        
+        print("^2[qb-hackerjob:laptop] ^7Laptop client initialization complete")
     end)
 end)
 
