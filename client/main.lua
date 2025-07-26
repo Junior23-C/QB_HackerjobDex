@@ -23,7 +23,6 @@ local currentJob = nil
 local vendorPed = nil
 local vendorBlip = nil
 local traceLevel = 0
-local isCharging = false
 
 -- Enhanced logging functions
 local function SafeLogError(message, context)
@@ -290,7 +289,6 @@ AddEventHandler('onResourceStop', function(resourceName)
     PlayerData = {}
     currentJob = nil
     traceLevel = 0
-    isCharging = false
     
     SafeLogInfo('Resource cleanup completed')
 end)

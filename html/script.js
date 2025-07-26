@@ -652,8 +652,8 @@ function resetUI() {
     $('.boot-progress-bar').css('width', '0%');
     $('#home-screen').addClass('hidden');
     $('#boot-screen').removeClass('hidden');
-    batteryLevel = 100;
-    isCharging = false;
+    // Don't reset battery values - they should persist between open/close
+    // batteryLevel and isCharging should maintain their current state
     currentLevel = 1;
     currentXP = 0;
     nextLevelXP = 100;

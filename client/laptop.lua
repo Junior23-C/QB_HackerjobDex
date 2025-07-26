@@ -4,6 +4,8 @@ local laptopOpen = false
 local batteryLevel = 100
 local isCharging = false
 local batteryDrainThread = nil
+local chargingThread = nil
+local chargingActive = false
 
 -- Initialize battery level from saved data
 Citizen.CreateThread(function()
@@ -120,6 +122,10 @@ function CloseLaptop()
     if batteryDrainThread then
         batteryDrainThread = nil
     end
+    
+    -- Stop charging if active (charging can continue when laptop is closed)
+    -- Note: We don't stop charging here as it should continue even when laptop is closed
+    -- This is realistic behavior - charger stays connected
     
     -- Save battery level
     if Config.Battery.enabled then
@@ -363,12 +369,22 @@ RegisterNUICallback('toggleCharger', function(_, cb)
                 QBCore.Functions.Notify("Laptop charger connected", "success")
                 print("^2[qb-hackerjob:laptop] ^7Starting charging process - Battery: " .. batteryLevel .. "%")
                 
-                -- Start realistic charging
-                CreateThread(function()
-                    while isCharging and batteryLevel < 100 do
+                -- Start realistic charging (stop any existing charging thread first)
+                if chargingThread then
+                    chargingActive = false
+                    chargingThread = nil
+                end
+                
+                chargingActive = true
+                chargingThread = CreateThread(function()
+                    print("^2[qb-hackerjob:laptop] ^7Charging thread started")
+                    while isCharging and batteryLevel < 100 and chargingActive do
                         Wait(Config.Battery.chargeInterval) -- Default: 30 seconds
                         
-                        if not isCharging then break end -- Double check charging status
+                        if not isCharging or not chargingActive then 
+                            print("^2[qb-hackerjob:laptop] ^7Charging stopped - breaking from thread")
+                            break 
+                        end -- Double check charging status
                         
                         -- Determine charge rate based on battery level (realistic charging curve)
                         local chargeRate
@@ -402,11 +418,22 @@ RegisterNUICallback('toggleCharger', function(_, cb)
                             break
                         end
                     end
+                    chargingThread = nil
+                    chargingActive = false
                     print("^2[qb-hackerjob:laptop] ^7Charging thread ended")
                 end)
             else
                 QBCore.Functions.Notify("Laptop charger disconnected", "primary")
                 print("^2[qb-hackerjob:laptop] ^7Charger disconnected - Battery: " .. batteryLevel .. "%")
+                
+                -- Stop charging thread by setting flag (thread will detect and stop)
+                if chargingThread then
+                    chargingActive = false
+                    chargingThread = nil
+                end
+                
+                -- Save current battery level immediately
+                SetResourceKvpFloat('hackerjob_battery', batteryLevel)
                 
                 if laptopOpen then
                     SendNUIMessage({
@@ -420,6 +447,7 @@ RegisterNUICallback('toggleCharger', function(_, cb)
                 end
             end
             
+            -- Return the callback immediately with current state
             cb({
                 success = true, 
                 message = isCharging and "Charger connected" or "Charger disconnected",
