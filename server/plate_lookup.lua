@@ -1,6 +1,16 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local vehicleCache = {}
 
+-- Performance monitoring and statistics
+local performanceStats = {
+    totalQueries = 0,
+    slowQueries = 0,
+    averageQueryTime = 0,
+    cacheHits = 0,
+    cacheMisses = 0,
+    lastResetTime = os.time()
+}
+
 -- Enhanced error handling for plate lookup system
 local function SafeLogError(message, context)
     local timestamp = os.date('%Y-%m-%d %H:%M:%S')
@@ -909,16 +919,6 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:isVehicleFlagged', function
         2 -- Retry up to 2 times for flag checks
     )
 end)
-
--- Performance monitoring and statistics
-local performanceStats = {
-    totalQueries = 0,
-    slowQueries = 0,
-    averageQueryTime = 0,
-    cacheHits = 0,
-    cacheMisses = 0,
-    lastResetTime = os.time()
-}
 
 -- Update query performance stats
 local function updateQueryStats(queryTime)
