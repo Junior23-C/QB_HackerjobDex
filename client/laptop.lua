@@ -5,6 +5,14 @@ local batteryLevel = 100
 local isCharging = false
 local batteryDrainThread = nil
 
+-- Initialize battery level from saved data
+Citizen.CreateThread(function()
+    if Config.Battery.enabled then
+        batteryLevel = GetResourceKvpFloat('hackerjob_battery') or 100
+        print("^2[qb-hackerjob:laptop] ^7Battery level initialized: " .. batteryLevel .. "%")
+    end
+end)
+
 -- Debug print
 print("^2[qb-hackerjob:laptop] ^7Laptop client script loaded")
 
@@ -103,6 +111,31 @@ function CloseLaptop()
     end
 end
 
+-- Function to drain battery for specific operations
+function DrainBatteryForOperation(operation)
+    if not Config.Battery.enabled then return end
+    
+    local drainAmount = Config.Battery.operationDrainRates[operation] or Config.Battery.drainRate
+    batteryLevel = math.max(0, batteryLevel - drainAmount)
+    
+    -- Save battery level
+    SetResourceKvpFloat('hackerjob_battery', batteryLevel)
+    
+    -- Update UI if laptop is open
+    if laptopOpen then
+        SendNUIMessage({
+            action = "updateBattery",
+            batteryLevel = batteryLevel
+        })
+    end
+    
+    -- Check if battery died
+    if batteryLevel <= 0 then
+        QBCore.Functions.Notify("Laptop battery died", "error")
+        CloseLaptop()
+    end
+end
+
 -- Battery system functions
 function StartBatteryDrain()
     if not Config.Battery.enabled or batteryDrainThread then
@@ -111,9 +144,13 @@ function StartBatteryDrain()
     
     batteryDrainThread = CreateThread(function()
         while laptopOpen and batteryLevel > 0 and not isCharging do
-            Wait(Config.Battery.drainInterval)
+            -- Calculate drain interval: 0.1% per minute = 0.1% per 60000ms
+            -- So for 0.1% drain, we wait 60000ms
+            local drainInterval = 60000 -- 1 minute
+            Wait(drainInterval)
             
-            batteryLevel = math.max(0, batteryLevel - Config.Battery.drainAmount)
+            -- Apply idle drain rate (0.1% per minute)
+            batteryLevel = math.max(0, batteryLevel - Config.Battery.idleDrainRate)
             
             -- Update UI
             SendNUIMessage({
@@ -121,10 +158,13 @@ function StartBatteryDrain()
                 batteryLevel = batteryLevel
             })
             
+            -- Save battery level periodically
+            SetResourceKvpFloat('hackerjob_battery', batteryLevel)
+            
             -- Warnings
-            if batteryLevel <= 20 and batteryLevel > 10 then
+            if batteryLevel <= Config.Battery.lowBatteryThreshold and batteryLevel > Config.Battery.criticalBatteryThreshold then
                 QBCore.Functions.Notify("Laptop battery low", "error")
-            elseif batteryLevel <= 10 and batteryLevel > 0 then
+            elseif batteryLevel <= Config.Battery.criticalBatteryThreshold and batteryLevel > 0 then
                 QBCore.Functions.Notify("Laptop battery critical!", "error")
             elseif batteryLevel <= 0 then
                 QBCore.Functions.Notify("Laptop battery died", "error")
@@ -182,7 +222,20 @@ RegisterNetEvent('qb-hackerjob:client:toggleCharger', function()
             while isCharging and batteryLevel < 100 do
                 Wait(Config.Battery.chargeInterval)
                 
-                batteryLevel = math.min(100, batteryLevel + Config.Battery.chargeAmount)
+                -- Determine charge rate based on battery level
+                local chargeRate
+                if batteryLevel < 30 then
+                    chargeRate = Config.Battery.fastChargeRate
+                elseif batteryLevel >= 80 then
+                    chargeRate = Config.Battery.slowChargeRate
+                else
+                    chargeRate = Config.Battery.chargeRate
+                end
+                
+                batteryLevel = math.min(100, batteryLevel + chargeRate)
+                
+                -- Save battery level
+                SetResourceKvpFloat('hackerjob_battery', batteryLevel)
                 
                 if laptopOpen then
                     SendNUIMessage({
@@ -194,6 +247,7 @@ RegisterNetEvent('qb-hackerjob:client:toggleCharger', function()
                 
                 if batteryLevel >= 100 then
                     QBCore.Functions.Notify("Laptop fully charged", "success")
+                    break
                 end
             end
         end)
@@ -235,6 +289,9 @@ RegisterNUICallback('performPlateLookup', function(data, cb)
         -- Perform the lookup
         QBCore.Functions.TriggerCallback('qb-hackerjob:server:plateLookup', function(result)
             if result then
+                -- Drain battery for operation
+                DrainBatteryForOperation('plateLookup')
+                
                 cb({success = true, data = result})
                 
                 -- Award XP if enabled
@@ -262,6 +319,9 @@ RegisterNUICallback('trackPhone', function(data, cb)
         
         QBCore.Functions.TriggerCallback('qb-hackerjob:server:trackPhone', function(result)
             if result then
+                -- Drain battery for operation
+                DrainBatteryForOperation('phoneTrack')
+                
                 cb({success = true, data = result})
                 
                 if Config.XPEnabled then
@@ -288,6 +348,9 @@ RegisterNUICallback('decryptRadio', function(data, cb)
         
         QBCore.Functions.TriggerCallback('qb-hackerjob:server:decryptRadio', function(result)
             if result then
+                -- Drain battery for operation
+                DrainBatteryForOperation('radioDecrypt')
+                
                 cb({success = true, data = result})
                 
                 if Config.XPEnabled then
@@ -314,6 +377,9 @@ RegisterNUICallback('hackPhone', function(data, cb)
         
         QBCore.Functions.TriggerCallback('qb-hackerjob:server:hackPhone', function(result)
             if result then
+                -- Drain battery for operation  
+                DrainBatteryForOperation('phoneHack')
+                
                 cb({success = true, data = result})
                 
                 if Config.XPEnabled then
@@ -341,11 +407,40 @@ end)
 exports('OpenHackerLaptop', OpenHackerLaptop)
 exports('CloseLaptop', CloseLaptop)
 exports('IsLaptopOpen', function() return laptopOpen end)
+exports('GetBatteryLevel', function() return batteryLevel end)
+exports('IsCharging', function() return isCharging end)
 
 -- Commands for testing
 RegisterCommand('testlaptop', function()
     print("^2[qb-hackerjob:laptop] ^7Test command triggered")
     TriggerEvent('qb-hackerjob:client:openLaptop')
+end, false)
+
+RegisterCommand('testbattery', function()
+    print("^2[qb-hackerjob:laptop] ^7Current battery level: " .. batteryLevel .. "%")
+    print("^2[qb-hackerjob:laptop] ^7Charging status: " .. tostring(isCharging))
+end, false)
+
+RegisterCommand('setbattery', function(source, args)
+    if args[1] then
+        local newLevel = tonumber(args[1])
+        if newLevel and newLevel >= 0 and newLevel <= 100 then
+            batteryLevel = newLevel
+            SetResourceKvpFloat('hackerjob_battery', batteryLevel)
+            print("^2[qb-hackerjob:laptop] ^7Battery level set to: " .. batteryLevel .. "%")
+            
+            if laptopOpen then
+                SendNUIMessage({
+                    action = "updateBattery",
+                    batteryLevel = batteryLevel
+                })
+            end
+        else
+            print("^1[qb-hackerjob:laptop] ^7Invalid battery level. Use 0-100")
+        end
+    else
+        print("^1[qb-hackerjob:laptop] ^7Usage: /setbattery <level>")
+    end
 end, false)
 
 print("^2[qb-hackerjob:laptop] ^7Laptop client script initialized successfully")
