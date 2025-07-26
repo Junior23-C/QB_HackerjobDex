@@ -433,11 +433,11 @@ function setupEventHandlers() {
 function resetUI() {
     laptopOpen = false;
     activeAppWindow = null;
-    $('#laptop-container').removeClass('visible').addClass('hidden');
-    $('.app-window').addClass('hidden');
+    $('#phone-container').removeClass('visible').addClass('hidden');
+    $('.app-screen').addClass('hidden');
     $('.boot-progress-bar').css('width', '0%');
-    $('#desktop').addClass('hidden');
-    $('#boot-screen').removeClass('hidden');
+    $('#home-screen').addClass('hidden');
+    $('#boot-screen').addClass('hidden');
     batteryLevel = 100;
     isCharging = false;
     currentLevel = 1;
@@ -447,10 +447,10 @@ function resetUI() {
     updateHackerStatsDisplay(); // Reset display
 }
 
-// Enhanced laptop opening function with error handling
-function openLaptop(data) {
+// Enhanced phone opening function with error handling
+function openPhone(data) {
     if (laptopOpen) {
-        safeLogInfo('Laptop already open');
+        safeLogInfo('Phone already open');
         return;
     }
 
@@ -596,13 +596,13 @@ function openLaptop(data) {
                         setTimeout(() => {
                             try {
                                 const bootScreenElement = $('#boot-screen');
-                                const desktopElement = $('#desktop');
+                                const homeScreenElement = $('#home-screen');
                                 
                                 if (bootScreenElement.length > 0) {
                                     bootScreenElement.addClass('hidden');
                                 }
-                                if (desktopElement.length > 0) {
-                                    desktopElement.removeClass('hidden');
+                                if (homeScreenElement.length > 0) {
+                                    homeScreenElement.removeClass('hidden');
                                 }
                                 
                                 safeLogInfo('Laptop boot sequence completed successfully');
@@ -614,10 +614,10 @@ function openLaptop(data) {
                 } catch (err) {
                     safeLogError('Error during boot sequence step: ' + err.message);
                     clearInterval(fastBootSequence);
-                    // Force show desktop as fallback
+                    // Force show home screen as fallback
                     try {
                         $('#boot-screen').addClass('hidden');
-                        $('#desktop').removeClass('hidden');
+                        $('#home-screen').removeClass('hidden');
                     } catch (e) {
                         safeLogError('Critical error during boot fallback: ' + e.message);
                     }
@@ -625,10 +625,10 @@ function openLaptop(data) {
             }, 300);
         } catch (err) {
             safeLogError('Error setting up boot sequence: ' + err.message);
-            // Fallback to direct desktop show
+            // Fallback to direct home screen show
             try {
                 $('#boot-screen').addClass('hidden');
-                $('#desktop').removeClass('hidden');
+                $('#home-screen').removeClass('hidden');
             } catch (e) {
                 safeLogError('Critical error during boot fallback: ' + e.message);
             }
@@ -847,19 +847,19 @@ function updateBatteryDisplay(level, charging) {
     });
 }
 
-// Enhanced laptop closing function with error handling
-function closeLaptop() {
+// Enhanced phone closing function with error handling
+function closePhone() {
     if (!laptopOpen) {
-        safeLogDebug('Laptop already closed');
+        safeLogDebug('Phone already closed');
         return;
     }
 
-    safeLogInfo('Closing laptop');
+    safeLogInfo('Closing phone');
     
     try {
-        const laptopContainer = $('#laptop-container');
-        if (laptopContainer.length > 0) {
-            laptopContainer.removeClass('visible');
+        const phoneContainer = $('#phone-container');
+        if (phoneContainer.length > 0) {
+            phoneContainer.removeClass('visible');
         }
 
         setTimeout(() => {

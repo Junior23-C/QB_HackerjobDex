@@ -70,8 +70,8 @@ function OpenHackerLaptop(stats)
     -- Open NUI
     SetNuiFocus(true, true)
     SendNUIMessage({
-        action = "openLaptop",
-        type = "openLaptop",
+        action = "openPhone",
+        type = "openPhone",
         level = stats.level,
         xp = stats.xp,
         nextLevelXP = stats.nextLevelXP,
@@ -97,7 +97,7 @@ function CloseLaptop()
     laptopOpen = false
     SetNuiFocus(false, false)
     SendNUIMessage({
-        action = "closeLaptop"
+        action = "closePhone"
     })
     
     -- Stop battery drain
@@ -269,6 +269,11 @@ end)
 
 -- NUI Callbacks
 RegisterNUICallback('closeLaptop', function(_, cb)
+    CloseLaptop()
+    cb({success = true})
+end)
+
+RegisterNUICallback('closePhone', function(_, cb)
     CloseLaptop()
     cb({success = true})
 end)
