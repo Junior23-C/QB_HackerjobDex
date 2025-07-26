@@ -231,9 +231,9 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:lookupPlate', function(sour
         return
     end
     
-    if not cb or type(cb) ~= 'function' then
-        SafeLogError('Invalid callback in lookupPlate', src)
-        print("^1[qb-hackerjob:server] ^7Invalid callback function provided")
+    if not cb then
+        SafeLogError('No callback provided in lookupPlate', src)
+        print("^1[qb-hackerjob:server] ^7No callback function provided")
         return
     end
     
