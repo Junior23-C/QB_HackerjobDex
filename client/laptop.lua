@@ -61,7 +61,6 @@ function OpenHackerLaptop(stats)
     
     -- Check battery if system is enabled
     if Config.Battery.enabled then
-        batteryLevel = GetResourceKvpFloat('hackerjob_battery') or 100
         if batteryLevel <= 0 then
             QBCore.Functions.Notify("Laptop battery is dead. You need to charge it.", "error")
             return
