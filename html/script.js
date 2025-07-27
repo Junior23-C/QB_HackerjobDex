@@ -2306,7 +2306,7 @@ window.addEventListener('message', function(event) {
                     
                 case 'updateBattery':
                     try {
-                        const level = (typeof data.level === 'number' && data.level >= 0 && data.level <= 100) ? data.level : 100;
+                        const level = (typeof data.batteryLevel === 'number' && data.batteryLevel >= 0 && data.batteryLevel <= 100) ? data.batteryLevel : batteryLevel;
                         const charging = Boolean(data.charging);
                         
                         // Force create battery indicator if it doesn't exist

@@ -3,7 +3,7 @@ game 'gta5'
 
 description 'QBCore Hacker Job with Advanced Vehicle Plate Lookup'
 version '1.0.0'
-author 'Your Name'
+author 'Mr.Dex'
 
 shared_scripts {
     '@qb-core/shared/locale.lua',
