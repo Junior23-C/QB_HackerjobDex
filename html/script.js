@@ -644,7 +644,7 @@ function switchTab(tabName) {
     }
 }
 
-// Switch bottom navigation
+// Switch bottom navigation - Fixed to ensure complete screen switching
 function switchBottomNav(tabName) {
     try {
         console.log('switchBottomNav called with:', tabName);
@@ -655,17 +655,24 @@ function switchBottomNav(tabName) {
         activeNavItem.addClass('active').attr('aria-selected', 'true').attr('tabindex', '0');
         console.log('Updated nav item active state');
         
-        // Hide all tab content
-        $('.tab-content').addClass('hidden');
-        $('.app-screen').addClass('hidden');
-        console.log('Hidden all content');
+        // Hide ALL content screens completely - this ensures only one screen is visible
+        $('#home-screen').addClass('hidden');
+        $('#contracts-content').addClass('hidden');
+        $('#tools-content').addClass('hidden');
+        $('#market-content').addClass('hidden');
+        $('#profile-content').addClass('hidden');
+        $('.app-screen').addClass('hidden'); // Hide all app screens too
+        $('.tab-content').addClass('hidden'); // Hide any other tab content
+        console.log('Hidden all content screens');
         
-        // Show appropriate content based on tab
+        // Clear any active app screen reference
+        activeAppScreen = null;
+        
+        // Show ONLY the appropriate content screen based on selected tab
         switch (tabName) {
             case 'home':
                 console.log('Showing home screen');
                 $('#home-screen').removeClass('hidden');
-                activeAppScreen = null;
                 break;
             case 'contracts':
                 console.log('Showing contracts content');
@@ -675,7 +682,6 @@ function switchBottomNav(tabName) {
             case 'tools':
                 console.log('Showing tools content');
                 $('#tools-content').removeClass('hidden');
-                activeAppScreen = null;
                 break;
             case 'market':
                 console.log('Showing market content');
@@ -688,14 +694,17 @@ function switchBottomNav(tabName) {
                 loadProfileData();
                 break;
             default:
-                goToHome();
+                console.log('Unknown tab, defaulting to home');
+                $('#home-screen').removeClass('hidden');
                 break;
         }
         
         phoneLastUsed = Date.now();
-        safeLogInfo('Switched bottom nav to: ' + tabName);
+        safeLogInfo('Switched bottom nav to: ' + tabName + ' - showing dedicated screen');
     } catch (err) {
         safeLogError('Error switching bottom nav: ' + err.message);
+        // Fallback to home screen on error
+        $('#home-screen').removeClass('hidden');
     }
 }
 
@@ -1593,8 +1602,13 @@ function closePhone() {
 function openApp(appName) {
     phoneLastUsed = Date.now();
     
-    // Hide home screen
+    // Hide ALL screens and tab content first
     $('#home-screen').addClass('hidden');
+    $('#contracts-content').addClass('hidden');
+    $('#tools-content').addClass('hidden');
+    $('#market-content').addClass('hidden');
+    $('#profile-content').addClass('hidden');
+    $('.app-screen').addClass('hidden');
     
     // Close any currently open app
     if (activeAppScreen) {
@@ -1649,11 +1663,21 @@ function closeApp(appScreenId) {
 
 // Go back to home screen
 function goToHome() {
-    if (activeAppScreen) {
-        $(`#${activeAppScreen}`).addClass('hidden');
-        activeAppScreen = null;
-    }
+    // Hide all app screens and tab content
+    $('.app-screen').addClass('hidden');
+    $('#contracts-content').addClass('hidden');
+    $('#tools-content').addClass('hidden');
+    $('#market-content').addClass('hidden');
+    $('#profile-content').addClass('hidden');
+    
+    // Clear active app screen reference
+    activeAppScreen = null;
+    
+    // Show home screen and update navigation
     $('#home-screen').removeClass('hidden');
+    $('.nav-item').removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
+    $('.nav-item[data-tab="home"]').addClass('active').attr('aria-selected', 'true').attr('tabindex', '0');
+    
     phoneLastUsed = Date.now();
 }
 

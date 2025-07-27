@@ -516,6 +516,32 @@ body {
     box-sizing: border-box;
 }
 
+/* Ensure tab content screens behave like full screens */
+#contracts-content,
+#market-content, 
+#profile-content,
+#tools-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    z-index: 15;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure these screens are hidden by default */
+#contracts-content.hidden,
+#market-content.hidden, 
+#profile-content.hidden,
+#tools-content.hidden {
+    display: none !important;
+}
+
 /* Home screen specific padding adjustment */
 #home-screen {
     padding-bottom: 90px;
