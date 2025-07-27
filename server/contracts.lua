@@ -1,5 +1,14 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+-- Helper function to get table keys
+local function getTableKeys(tbl)
+    local keys = {}
+    for k, _ in pairs(tbl) do
+        table.insert(keys, k)
+    end
+    return keys
+end
+
 -- Contract system state
 local ContractSystem = {
     activeContracts = {},      -- Currently available contracts
@@ -28,11 +37,15 @@ local function RefreshContracts()
     local currentCount = #ContractSystem.activeContracts
     local contractsToGenerate = targetContracts - currentCount
     
+    print("^2[Contracts] ^7Current contracts: " .. currentCount .. ", Target: " .. targetContracts .. ", Need to generate: " .. contractsToGenerate)
+    
     for i = 1, contractsToGenerate do
         local newContract = GenerateRandomContract()
         if newContract then
             table.insert(ContractSystem.activeContracts, newContract)
             print("^2[Contracts] ^7Generated new contract: " .. newContract.title)
+        else
+            print("^1[Contracts] ^7Failed to generate contract " .. i)
         end
     end
     
@@ -117,7 +130,20 @@ end
 -- Initialize contract system
 local function InitializeContracts()
     print("^2[Contracts] ^7System initializing...")
+    
+    -- Check if config is loaded
+    if not Config or not Config.Contracts then
+        print("^1[Contracts] ^7ERROR: Config.Contracts not found!")
+        return
+    end
+    
+    if not Config.Contracts.templates then
+        print("^1[Contracts] ^7ERROR: No contract templates in config!")
+        return
+    end
+    
     print("^2[Contracts] ^7Contract templates found: " .. #Config.Contracts.templates)
+    print("^2[Contracts] ^7Categories found: " .. table.concat(getTableKeys(Config.Contracts.categories or {}), ", "))
     
     -- Generate initial contracts
     RefreshContracts()
@@ -519,6 +545,41 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getContracts', function(sou
     
     print("^3[Contracts] ^7Getting contracts for player " .. source .. ". Active contracts: " .. #ContractSystem.activeContracts)
     
+    -- If no contracts, create some test contracts
+    if #ContractSystem.activeContracts == 0 then
+        print("^3[Contracts] ^7No contracts available, creating test contracts")
+        ContractSystem.activeContracts = {
+            {
+                id = "TEST001",
+                category = "corporate",
+                title = "Test Contract - Data Retrieval",
+                description = "Retrieve sensitive data from corporate servers",
+                difficulty = 2,
+                reward = 2500,
+                xpReward = 25,
+                timeLimit = 3600000,
+                expiresAt = os.time() + 7200,
+                objectives = {
+                    {type = "plateLookup", count = 2, description = "Look up 2 vehicle plates", current = 0}
+                }
+            },
+            {
+                id = "TEST002", 
+                category = "personal",
+                title = "Test Contract - Missing Person",
+                description = "Track down a missing person using phone data",
+                difficulty = 1,
+                reward = 1500,
+                xpReward = 15,
+                timeLimit = 2700000,
+                expiresAt = os.time() + 7200,
+                objectives = {
+                    {type = "phoneTracking", count = 1, description = "Track 1 phone number", current = 0}
+                }
+            }
+        }
+    end
+    
     cb({
         success = true,
         contracts = ContractSystem.activeContracts or {}
@@ -529,7 +590,8 @@ end)
 QBCore.Commands.Add('refreshcontracts', 'Force refresh available contracts (Admin Only)', {}, false, function(source, args)
     local src = source
     
-    if not QBCore.Functions.HasPermission(src, 'admin') then
+    -- Check for admin or god permission
+    if src ~= 0 and not QBCore.Functions.HasPermission(src, 'admin') and not QBCore.Functions.HasPermission(src, 'god') then
         TriggerClientEvent('QBCore:Notify', src, 'Access denied - insufficient permissions', 'error')
         return
     end
