@@ -665,13 +665,8 @@ function switchBottomNav(tabName) {
         console.log('Updated nav item active state');
         
         // Hide ALL content screens completely - this ensures only one screen is visible
-        $('#home-screen').addClass('hidden');
-        $('#contracts-content').addClass('hidden');
-        $('#tools-content').addClass('hidden');
-        $('#market-content').addClass('hidden');
-        $('#profile-content').addClass('hidden');
+        $('#home-screen, #contracts-content, #tools-content, #market-content, #profile-content').removeClass('visible').addClass('hidden');
         $('.app-screen').addClass('hidden'); // Hide all app screens too
-        $('.tab-content').addClass('hidden'); // Hide any other tab content
         console.log('Hidden all content screens');
         
         // Clear any active app screen reference
@@ -681,42 +676,31 @@ function switchBottomNav(tabName) {
         switch (tabName) {
             case 'home':
                 console.log('Showing home screen');
-                $('#home-screen').removeClass('hidden');
-                updateDashboardStats(); // Refresh dashboard when returning to home
+                $('#home-screen').removeClass('hidden').addClass('visible');
                 break;
             case 'contracts':
                 console.log('Showing contracts content');
-                $('#contracts-content').removeClass('hidden');
-                // Ensure content is visible first, then load data
-                setTimeout(() => {
-                    loadContracts();
-                }, 50);
+                $('#contracts-content').removeClass('hidden').addClass('visible');
+                setTimeout(() => loadContracts(), 50);
                 break;
             case 'tools':
                 console.log('Showing tools content');
-                $('#tools-content').removeClass('hidden');
-                // Tools tab doesn't need dynamic loading, content is static
+                $('#tools-content').removeClass('hidden').addClass('visible');
+                console.log('Tools content should now be visible');
                 break;
             case 'market':
                 console.log('Showing market content');
-                $('#market-content').removeClass('hidden');
-                // Ensure content is visible first, then load data
-                setTimeout(() => {
-                    loadMarketData();
-                }, 50);
+                $('#market-content').removeClass('hidden').addClass('visible');
+                setTimeout(() => loadMarketData(), 50);
                 break;
             case 'profile':
                 console.log('Showing profile content');
-                $('#profile-content').removeClass('hidden');
-                // Ensure content is visible first, then load data
-                setTimeout(() => {
-                    loadProfileData();
-                }, 50);
+                $('#profile-content').removeClass('hidden').addClass('visible');
+                setTimeout(() => loadProfileData(), 50);
                 break;
             default:
                 console.log('Unknown tab, defaulting to home');
-                $('#home-screen').removeClass('hidden');
-                updateDashboardStats();
+                $('#home-screen').removeClass('hidden').addClass('visible');
                 break;
         }
         
@@ -1767,16 +1751,13 @@ function closeApp(appScreenId) {
 function goToHome() {
     // Hide all app screens and tab content
     $('.app-screen').addClass('hidden');
-    $('#contracts-content').addClass('hidden');
-    $('#tools-content').addClass('hidden');
-    $('#market-content').addClass('hidden');
-    $('#profile-content').addClass('hidden');
+    $('#contracts-content, #tools-content, #market-content, #profile-content').removeClass('visible').addClass('hidden');
     
     // Clear active app screen reference
     activeAppScreen = null;
     
     // Show home screen and update navigation
-    $('#home-screen').removeClass('hidden');
+    $('#home-screen').removeClass('hidden').addClass('visible');
     $('.nav-item').removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
     $('.nav-item[data-tab="home"]').addClass('active').attr('aria-selected', 'true').attr('tabindex', '0');
     
