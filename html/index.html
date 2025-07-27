@@ -112,31 +112,88 @@
                     </div>
                 </div>
 
-                <!-- App Grid -->
-                <div class="app-grid">
-                    <div class="app-section">
-                        <h3 class="section-title">SECURITY TOOLS</h3>
-                        <div class="app-row">
-                            <div class="app-card" data-app="plate-lookup">
-                                <div class="app-icon">▣</div>
-                                <div class="app-info">
-                                    <div class="app-name">Vehicle Database</div>
-                                    <div class="app-desc">Plate lookup system</div>
+                <!-- Command Center Dashboard -->
+                <div class="dashboard-content">
+                    <!-- Recent Activity Feed -->
+                    <div class="activity-section">
+                        <div class="section-header">
+                            <h3>Recent Activity</h3>
+                            <div class="activity-indicator">
+                                <div class="indicator-dot"></div>
+                                <span>Live</span>
+                            </div>
+                        </div>
+                        <div class="activity-feed" id="activity-feed">
+                            <div class="activity-item">
+                                <div class="activity-icon">🔍</div>
+                                <div class="activity-content">
+                                    <div class="activity-text">System initialized successfully</div>
+                                    <div class="activity-time">Just now</div>
                                 </div>
                             </div>
-                            <div class="app-card" data-app="phone-tracker">
-                                <div class="app-icon">◈</div>
-                                <div class="app-info">
-                                    <div class="app-name">Signal Tracker</div>
-                                    <div class="app-desc">Mobile device location</div>
+                            <div class="activity-item">
+                                <div class="activity-icon">🔋</div>
+                                <div class="activity-content">
+                                    <div class="activity-text">Battery level optimal</div>
+                                    <div class="activity-time">1 min ago</div>
                                 </div>
                             </div>
-                            <div class="app-card" data-app="radio-decrypt">
-                                <div class="app-icon">◉</div>
-                                <div class="app-info">
-                                    <div class="app-name">Frequency Scanner</div>
-                                    <div class="app-desc">Radio signal analysis</div>
+                            <div class="activity-item">
+                                <div class="activity-icon">📡</div>
+                                <div class="activity-content">
+                                    <div class="activity-text">Network connection established</div>
+                                    <div class="activity-time">2 min ago</div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="quick-actions-section">
+                        <div class="section-header">
+                            <h3>Quick Access</h3>
+                        </div>
+                        <div class="quick-actions-grid">
+                            <button class="quick-action-btn" data-tab="tools">
+                                <div class="quick-action-icon">🛠️</div>
+                                <span>Access Tools</span>
+                            </button>
+                            <button class="quick-action-btn" data-tab="contracts">
+                                <div class="quick-action-icon">📋</div>
+                                <span>View Contracts</span>
+                            </button>
+                            <button class="quick-action-btn" data-tab="market">
+                                <div class="quick-action-icon">📊</div>
+                                <span>Market Intel</span>
+                            </button>
+                            <button class="quick-action-btn" data-tab="profile">
+                                <div class="quick-action-icon">👤</div>
+                                <span>Profile</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- System Status -->
+                    <div class="system-status-section">
+                        <div class="section-header">
+                            <h3>System Status</h3>
+                        </div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <div class="status-label">Security Level</div>
+                                <div class="status-value secure">HIGH</div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-label">Network Status</div>
+                                <div class="status-value online">ONLINE</div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-label">Tools Status</div>
+                                <div class="status-value ready">READY</div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-label">Uptime</div>
+                                <div class="status-value" id="system-uptime">00:00:00</div>
                             </div>
                         </div>
                     </div>
@@ -233,7 +290,13 @@
                         <div class="tool-card-info">
                             <div class="tool-card-name">Vehicle Database</div>
                             <div class="tool-card-desc">Access comprehensive vehicle registration records and perform plate lookups</div>
-                            <div class="tool-card-status" aria-label="Status: Ready">● READY</div>
+                            <div class="tool-card-meta">
+                                <div class="tool-card-status ready" aria-label="Status: Ready">
+                                    <div class="status-dot"></div>
+                                    <span>OPERATIONAL</span>
+                                </div>
+                                <div class="tool-card-usage">Last used: 2 hours ago</div>
+                            </div>
                         </div>
                         <button class="quick-access-btn" data-app="plate-lookup" aria-label="Launch Vehicle Database scanner">Launch Scanner</button>
                     </div>
@@ -243,7 +306,13 @@
                         <div class="tool-card-info">
                             <div class="tool-card-name">Signal Tracker</div>
                             <div class="tool-card-desc">Track mobile device locations and intercept communications</div>
-                            <div class="tool-card-status" aria-label="Status: Ready">● READY</div>
+                            <div class="tool-card-meta">
+                                <div class="tool-card-status calibrating" aria-label="Status: Calibrating">
+                                    <div class="status-dot"></div>
+                                    <span>CALIBRATING</span>
+                                </div>
+                                <div class="tool-card-usage">Signal strength: 78%</div>
+                            </div>
                         </div>
                         <button class="quick-access-btn" data-app="phone-tracker" aria-label="Start Signal Tracker">Start Tracking</button>
                     </div>
@@ -253,7 +322,13 @@
                         <div class="tool-card-info">
                             <div class="tool-card-name">Frequency Scanner</div>
                             <div class="tool-card-desc">Decrypt radio frequencies and analyze signal patterns</div>
-                            <div class="tool-card-status" aria-label="Status: Ready">● READY</div>
+                            <div class="tool-card-meta">
+                                <div class="tool-card-status ready" aria-label="Status: Ready">
+                                    <div class="status-dot"></div>
+                                    <span>STANDBY</span>
+                                </div>
+                                <div class="tool-card-usage">Frequency range: 88-108 MHz</div>
+                            </div>
                         </div>
                         <button class="quick-access-btn" data-app="radio-decrypt" aria-label="Start Frequency Scanner">Scan Frequencies</button>
                     </div>

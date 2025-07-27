@@ -184,6 +184,7 @@ $(document).ready(function() {
         setupTouchGestures();
         updateClock();
         updateGreeting();
+        initializeSystemUptime();
         
         safeLogInfo('Laptop interface initialization completed successfully');
     } catch (err) {
@@ -487,7 +488,15 @@ function setupPhoneEventHandlers() {
         // Tab navigation for new tabs
         $(document).on('click', '[data-tab]', function() {
             const tabName = $(this).data('tab');
-            if (tabName && ['contracts', 'tools', 'market', 'profile'].includes(tabName)) {
+            if (tabName && ['contracts', 'tools', 'market', 'profile', 'home'].includes(tabName)) {
+                switchBottomNav(tabName);
+            }
+        });
+
+        // Quick action buttons
+        $(document).on('click', '.quick-action-btn', function() {
+            const tabName = $(this).data('tab');
+            if (tabName) {
                 switchBottomNav(tabName);
             }
         });
@@ -673,29 +682,41 @@ function switchBottomNav(tabName) {
             case 'home':
                 console.log('Showing home screen');
                 $('#home-screen').removeClass('hidden');
+                updateDashboardStats(); // Refresh dashboard when returning to home
                 break;
             case 'contracts':
                 console.log('Showing contracts content');
                 $('#contracts-content').removeClass('hidden');
-                loadContracts();
+                // Ensure content is visible first, then load data
+                setTimeout(() => {
+                    loadContracts();
+                }, 50);
                 break;
             case 'tools':
                 console.log('Showing tools content');
                 $('#tools-content').removeClass('hidden');
+                // Tools tab doesn't need dynamic loading, content is static
                 break;
             case 'market':
                 console.log('Showing market content');
                 $('#market-content').removeClass('hidden');
-                loadMarketData();
+                // Ensure content is visible first, then load data
+                setTimeout(() => {
+                    loadMarketData();
+                }, 50);
                 break;
             case 'profile':
                 console.log('Showing profile content');
                 $('#profile-content').removeClass('hidden');
-                loadProfileData();
+                // Ensure content is visible first, then load data
+                setTimeout(() => {
+                    loadProfileData();
+                }, 50);
                 break;
             default:
                 console.log('Unknown tab, defaulting to home');
                 $('#home-screen').removeClass('hidden');
+                updateDashboardStats();
                 break;
         }
         
@@ -752,6 +773,9 @@ function filterContracts(filter) {
 // Load contracts data
 function loadContracts() {
     try {
+        // Show loading state first
+        $('#available-contracts-list').html('<div class="loading-state"><div class="loading-spinner"></div><p>Loading contracts...</p></div>');
+        
         // Request contracts from server
         safePost('https://qb-hackerjob/getContracts', 
             {},
@@ -759,16 +783,17 @@ function loadContracts() {
                 if (response && response.success && response.contracts) {
                     displayContracts(response.contracts);
                 } else {
-                    $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">📋</div><p>No contracts available</p></div>');
+                    $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">📋</div><p>No contracts available at this time</p><p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: var(--spacing-sm);">Check back later for new opportunities</p></div>');
                 }
             },
             function(error) {
                 safeLogError('Failed to load contracts: ' + error.message);
-                $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">❌</div><p>Failed to load contracts</p></div>');
+                $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">📡</div><p>Connection Error</p><p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: var(--spacing-sm);">Unable to connect to contract server</p></div>');
             }
         );
     } catch (err) {
         safeLogError('Error loading contracts: ' + err.message);
+        $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">❌</div><p>System Error</p><p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: var(--spacing-sm);">Please restart the application</p></div>');
     }
 }
 
@@ -841,23 +866,67 @@ function acceptContract(contractId) {
 // Load market data
 function loadMarketData() {
     try {
+        // Show loading state first
+        $('#pricing-grid').html('<div class="loading-state"><div class="loading-spinner"></div><p>Loading market data...</p></div>');
+        
         safePost('https://qb-hackerjob/getMarketData',
             {},
             function(response) {
                 if (response && response.success) {
                     displayMarketData(response.data);
                 } else {
-                    $('#pricing-grid').html('<div class="empty-state"><div class="empty-icon">📊</div><p>Market data unavailable</p></div>');
+                    // Show mock data when server data is unavailable
+                    displayMockMarketData();
                 }
             },
             function(error) {
                 safeLogError('Failed to load market data: ' + error.message);
-                $('#pricing-grid').html('<div class="empty-state"><div class="empty-icon">❌</div><p>Failed to load market data</p></div>');
+                // Show mock data on connection error
+                displayMockMarketData();
             }
         );
     } catch (err) {
         safeLogError('Error loading market data: ' + err.message);
+        displayMockMarketData();
     }
+}
+
+// Display mock market data when server is unavailable
+function displayMockMarketData() {
+    const mockData = {
+        services: {
+            'plate-lookup': {
+                name: 'Vehicle Database Access',
+                min: 500,
+                max: 2000,
+                current: 1250,
+                demand: 'medium',
+                demandText: 'Normal Demand'
+            },
+            'phone-tracker': {
+                name: 'Signal Tracking',
+                min: 1000,
+                max: 3500,
+                current: 2200,
+                demand: 'high',
+                demandText: 'High Demand'
+            },
+            'radio-decrypt': {
+                name: 'Frequency Analysis',
+                min: 800,
+                max: 2800,
+                current: 1800,
+                demand: 'low',
+                demandText: 'Low Demand'
+            }
+        },
+        marketStatus: {
+            status: 'Simulation Mode',
+            color: 'yellow'
+        }
+    };
+    
+    displayMarketData(mockData);
 }
 
 // Display market data
@@ -920,16 +989,49 @@ function loadProfileData() {
                 if (response && response.success) {
                     updateProfileMetrics(response.data);
                 } else {
-                    safeLogError('Failed to get profile data: ' + (response ? response.message : 'Unknown error'));
+                    // Display default profile data when server data is unavailable
+                    displayDefaultProfileData();
                 }
             },
             function(error) {
                 safeLogError('Error loading profile data: ' + error.message);
+                // Display default profile data on connection error
+                displayDefaultProfileData();
             }
         );
     } catch (err) {
         safeLogError('Error loading profile data: ' + err.message);
+        displayDefaultProfileData();
     }
+}
+
+// Display default profile data when server is unavailable
+function displayDefaultProfileData() {
+    const defaultData = {
+        totalEarnings: 0,
+        contractsCompleted: 0,
+        averagePerformance: '--',
+        successRate: '--',
+        skills: [
+            {
+                name: 'Circuit Puzzles',
+                level: 'Beginner',
+                progress: 20
+            },
+            {
+                name: 'Code Breaking',
+                level: 'Novice',
+                progress: 10
+            },
+            {
+                name: 'Network Analysis',
+                level: 'Beginner',
+                progress: 5
+            }
+        ]
+    };
+    
+    updateProfileMetrics(defaultData);
 }
 
 // Update profile metrics
@@ -2623,5 +2725,42 @@ function setupTouchGestures() {
         if (deltaY > threshold && startY < 100 && !activeAppScreen) {
             closePhone();
         }
+    }
+}
+
+// System uptime tracking
+let systemStartTime = Date.now();
+
+function initializeSystemUptime() {
+    try {
+        systemStartTime = Date.now();
+        updateSystemUptime();
+        // Update uptime every second
+        setInterval(updateSystemUptime, 1000);
+    } catch (err) {
+        safeLogError('Error initializing system uptime: ' + err.message);
+    }
+}
+
+function updateSystemUptime() {
+    try {
+        const uptimeElement = $('#system-uptime');
+        if (uptimeElement.length > 0) {
+            const currentTime = Date.now();
+            const uptimeMs = currentTime - systemStartTime;
+            
+            const hours = Math.floor(uptimeMs / (1000 * 60 * 60));
+            const minutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((uptimeMs % (1000 * 60)) / 1000);
+            
+            const formattedUptime = 
+                String(hours).padStart(2, '0') + ':' +
+                String(minutes).padStart(2, '0') + ':' +
+                String(seconds).padStart(2, '0');
+                
+            uptimeElement.text(formattedUptime);
+        }
+    } catch (err) {
+        safeLogError('Error updating system uptime: ' + err.message);
     }
 }
