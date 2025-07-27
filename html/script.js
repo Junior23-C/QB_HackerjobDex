@@ -629,9 +629,16 @@ function switchBottomNav(tabName) {
                 loadContracts();
                 break;
             case 'tools':
-                // Show the home screen with hacking tools
+                // Keep the home screen visible with tools section focused
                 $('#home-screen').removeClass('hidden');
                 activeAppScreen = null;
+                // Scroll to or highlight the tools section
+                setTimeout(() => {
+                    const toolsSection = $('.app-section');
+                    if (toolsSection.length > 0) {
+                        toolsSection[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
                 break;
             case 'market':
                 $('#market-content').removeClass('hidden');
