@@ -333,6 +333,19 @@ RegisterNUICallback('replaceBattery', function(_, cb)
     -- Check if player has battery item
     QBCore.Functions.TriggerCallback('qb-hackerjob:server:hasItem', function(hasItem)
         if hasItem then
+            -- Update battery level immediately
+            batteryLevel = 100
+            SetResourceKvpFloat('hackerjob_battery', batteryLevel)
+            
+            -- Update UI immediately if laptop is open
+            if laptopOpen then
+                SendNUIMessage({
+                    action = "updateBattery",
+                    batteryLevel = batteryLevel,
+                    charging = isCharging
+                })
+            end
+            
             -- Trigger the replace battery event for animation first
             TriggerEvent('qb-hackerjob:client:replaceBattery')
             
