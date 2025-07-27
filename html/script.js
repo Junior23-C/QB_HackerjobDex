@@ -665,8 +665,13 @@ function switchBottomNav(tabName) {
         console.log('Updated nav item active state');
         
         // Hide ALL content screens completely - this ensures only one screen is visible
-        $('#home-screen, #contracts-content, #tools-content, #market-content, #profile-content').removeClass('visible').addClass('hidden');
+        $('#home-screen').addClass('hidden');
+        $('#contracts-content').addClass('hidden');
+        $('#tools-content').addClass('hidden');
+        $('#market-content').addClass('hidden');
+        $('#profile-content').addClass('hidden');
         $('.app-screen').addClass('hidden'); // Hide all app screens too
+        $('.tab-content').addClass('hidden'); // Hide any other tab content
         console.log('Hidden all content screens');
         
         // Clear any active app screen reference
@@ -676,31 +681,31 @@ function switchBottomNav(tabName) {
         switch (tabName) {
             case 'home':
                 console.log('Showing home screen');
-                $('#home-screen').removeClass('hidden').addClass('visible');
+                $('#home-screen').removeClass('hidden');
                 break;
             case 'contracts':
                 console.log('Showing contracts content');
-                $('#contracts-content').removeClass('hidden').addClass('visible');
+                $('#contracts-content').removeClass('hidden');
                 setTimeout(() => loadContracts(), 50);
                 break;
             case 'tools':
                 console.log('Showing tools content');
-                $('#tools-content').removeClass('hidden').addClass('visible');
+                $('#tools-content').removeClass('hidden');
                 console.log('Tools content should now be visible');
                 break;
             case 'market':
                 console.log('Showing market content');
-                $('#market-content').removeClass('hidden').addClass('visible');
+                $('#market-content').removeClass('hidden');
                 setTimeout(() => loadMarketData(), 50);
                 break;
             case 'profile':
                 console.log('Showing profile content');
-                $('#profile-content').removeClass('hidden').addClass('visible');
+                $('#profile-content').removeClass('hidden');
                 setTimeout(() => loadProfileData(), 50);
                 break;
             default:
                 console.log('Unknown tab, defaulting to home');
-                $('#home-screen').removeClass('hidden').addClass('visible');
+                $('#home-screen').removeClass('hidden');
                 break;
         }
         
@@ -1300,7 +1305,7 @@ function openPhone(data) {
                     bootScreen.addClass('hidden');
                 }
                 if (homeScreen.length > 0) {
-                    homeScreen.removeClass('hidden').addClass('visible');
+                    homeScreen.removeClass('hidden');
                 }
                 
                 safeLogDebug('Phone opened successfully without animations');
@@ -1361,7 +1366,7 @@ function openPhone(data) {
                                     bootScreenElement.addClass('hidden');
                                 }
                                 if (homeScreenElement.length > 0) {
-                                    homeScreenElement.removeClass('hidden').addClass('visible');
+                                    homeScreenElement.removeClass('hidden');
                                 }
                                 
                                 safeLogInfo('Laptop boot sequence completed successfully');
@@ -1376,7 +1381,7 @@ function openPhone(data) {
                     // Force show home screen as fallback
                     try {
                         $('#boot-screen').addClass('hidden');
-                        $('#home-screen').removeClass('hidden').addClass('visible');
+                        $('#home-screen').removeClass('hidden');
                     } catch (e) {
                         safeLogError('Critical error during boot fallback: ' + e.message);
                     }
@@ -1387,7 +1392,7 @@ function openPhone(data) {
             // Fallback to direct home screen show
             try {
                 $('#boot-screen').addClass('hidden');
-                $('#home-screen').removeClass('hidden').addClass('visible');
+                $('#home-screen').removeClass('hidden');
             } catch (e) {
                 safeLogError('Critical error during boot fallback: ' + e.message);
             }
@@ -1751,13 +1756,16 @@ function closeApp(appScreenId) {
 function goToHome() {
     // Hide all app screens and tab content
     $('.app-screen').addClass('hidden');
-    $('#contracts-content, #tools-content, #market-content, #profile-content').removeClass('visible').addClass('hidden');
+    $('#contracts-content').addClass('hidden');
+    $('#tools-content').addClass('hidden');
+    $('#market-content').addClass('hidden');
+    $('#profile-content').addClass('hidden');
     
     // Clear active app screen reference
     activeAppScreen = null;
     
     // Show home screen and update navigation
-    $('#home-screen').removeClass('hidden').addClass('visible');
+    $('#home-screen').removeClass('hidden');
     $('.nav-item').removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
     $('.nav-item[data-tab="home"]').addClass('active').attr('aria-selected', 'true').attr('tabindex', '0');
     
