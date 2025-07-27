@@ -487,8 +487,42 @@ function setupPhoneEventHandlers() {
         // Tab navigation for new tabs
         $(document).on('click', '[data-tab]', function() {
             const tabName = $(this).data('tab');
-            if (tabName && ['contracts', 'market', 'profile'].includes(tabName)) {
+            if (tabName && ['contracts', 'tools', 'market', 'profile'].includes(tabName)) {
                 switchBottomNav(tabName);
+            }
+        });
+
+        // Tool card clicks (both card and button)
+        $(document).on('click', '.tool-card, .quick-access-btn', function(e) {
+            e.stopPropagation();
+            const appName = $(this).data('app') || $(this).closest('.tool-card').data('app');
+            console.log('Tool card/button clicked:', appName);
+            if (appName) {
+                openApp(appName);
+            }
+        });
+
+        // Tool card keyboard support
+        $(document).on('keydown', '.tool-card', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const appName = $(this).data('app');
+                console.log('Tool card activated via keyboard:', appName);
+                if (appName) {
+                    openApp(appName);
+                }
+            }
+        });
+
+        // Navigation keyboard support
+        $(document).on('keydown', '.nav-item', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const tabName = $(this).data('tab');
+                console.log('Nav item activated via keyboard:', tabName);
+                if (tabName) {
+                    switchBottomNav(tabName);
+                }
             }
         });
 
@@ -616,8 +650,9 @@ function switchBottomNav(tabName) {
         console.log('switchBottomNav called with:', tabName);
         
         // Update nav items
-        $('.nav-item').removeClass('active');
-        $(`.nav-item[data-tab="${tabName}"]`).addClass('active');
+        $('.nav-item').removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
+        const activeNavItem = $(`.nav-item[data-tab="${tabName}"]`);
+        activeNavItem.addClass('active').attr('aria-selected', 'true').attr('tabindex', '0');
         console.log('Updated nav item active state');
         
         // Hide all tab content
@@ -638,17 +673,9 @@ function switchBottomNav(tabName) {
                 loadContracts();
                 break;
             case 'tools':
-                console.log('Showing tools (home screen with focus)');
-                // Keep the home screen visible with tools section focused
-                $('#home-screen').removeClass('hidden');
+                console.log('Showing tools content');
+                $('#tools-content').removeClass('hidden');
                 activeAppScreen = null;
-                // Scroll to or highlight the tools section
-                setTimeout(() => {
-                    const toolsSection = $('.app-section');
-                    if (toolsSection.length > 0) {
-                        toolsSection[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 100);
                 break;
             case 'market':
                 console.log('Showing market content');

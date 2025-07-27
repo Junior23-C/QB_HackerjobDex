@@ -143,28 +143,28 @@
                 </div>
 
                 <!-- Bottom Navigation -->
-                <div class="bottom-nav">
-                    <div class="nav-item active" data-tab="home">
-                        <div class="nav-icon">🏠</div>
+                <nav class="bottom-nav" role="tablist" aria-label="Main navigation">
+                    <button class="nav-item active" data-tab="home" role="tab" aria-selected="true" aria-controls="home-screen" aria-label="Home screen" tabindex="0">
+                        <div class="nav-icon" aria-hidden="true">🏠</div>
                         <div class="nav-label">HOME</div>
-                    </div>
-                    <div class="nav-item" data-tab="contracts">
-                        <div class="nav-icon">📋</div>
+                    </button>
+                    <button class="nav-item" data-tab="contracts" role="tab" aria-selected="false" aria-controls="contracts-content" aria-label="View contracts" tabindex="-1">
+                        <div class="nav-icon" aria-hidden="true">📋</div>
                         <div class="nav-label">CONTRACTS</div>
-                    </div>
-                    <div class="nav-item" data-tab="tools">
-                        <div class="nav-icon">🛠️</div>
+                    </button>
+                    <button class="nav-item" data-tab="tools" role="tab" aria-selected="false" aria-controls="tools-content" aria-label="Access hacking tools" tabindex="-1">
+                        <div class="nav-icon" aria-hidden="true">🛠️</div>
                         <div class="nav-label">TOOLS</div>
-                    </div>
-                    <div class="nav-item" data-tab="market">
-                        <div class="nav-icon">📊</div>
+                    </button>
+                    <button class="nav-item" data-tab="market" role="tab" aria-selected="false" aria-controls="market-content" aria-label="Market intelligence" tabindex="-1">
+                        <div class="nav-icon" aria-hidden="true">📊</div>
                         <div class="nav-label">MARKET</div>
-                    </div>
-                    <div class="nav-item" data-tab="profile">
-                        <div class="nav-icon">👤</div>
+                    </button>
+                    <button class="nav-item" data-tab="profile" role="tab" aria-selected="false" aria-controls="profile-content" aria-label="User profile" tabindex="-1">
+                        <div class="nav-icon" aria-hidden="true">👤</div>
                         <div class="nav-label">PROFILE</div>
-                    </div>
-                </div>
+                    </button>
+                </nav>
             </div>
 
             <!-- Contracts Tab Content -->
@@ -216,6 +216,46 @@
                             <div class="empty-icon">📜</div>
                             <p>No completed contracts</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tools Tab Content -->
+            <div id="tools-content" class="tab-content hidden" role="tabpanel" aria-labelledby="tools-tab-label">
+                <div class="content-header">
+                    <h2 id="tools-tab-label">Hacking Tools</h2>
+                    <p>Professional-grade security tools and utilities</p>
+                </div>
+                
+                <div class="tools-grid" role="list">
+                    <div class="tool-card" data-app="plate-lookup" role="listitem" tabindex="0" aria-label="Vehicle Database - Launch scanner to access vehicle registration records">
+                        <div class="tool-card-icon" aria-hidden="true">▣</div>
+                        <div class="tool-card-info">
+                            <div class="tool-card-name">Vehicle Database</div>
+                            <div class="tool-card-desc">Access comprehensive vehicle registration records and perform plate lookups</div>
+                            <div class="tool-card-status" aria-label="Status: Ready">● READY</div>
+                        </div>
+                        <button class="quick-access-btn" data-app="plate-lookup" aria-label="Launch Vehicle Database scanner">Launch Scanner</button>
+                    </div>
+                    
+                    <div class="tool-card" data-app="phone-tracker" role="listitem" tabindex="0" aria-label="Signal Tracker - Track mobile device locations">
+                        <div class="tool-card-icon" aria-hidden="true">◈</div>
+                        <div class="tool-card-info">
+                            <div class="tool-card-name">Signal Tracker</div>
+                            <div class="tool-card-desc">Track mobile device locations and intercept communications</div>
+                            <div class="tool-card-status" aria-label="Status: Ready">● READY</div>
+                        </div>
+                        <button class="quick-access-btn" data-app="phone-tracker" aria-label="Start Signal Tracker">Start Tracking</button>
+                    </div>
+                    
+                    <div class="tool-card" data-app="radio-decrypt" role="listitem" tabindex="0" aria-label="Frequency Scanner - Decrypt radio frequencies">
+                        <div class="tool-card-icon" aria-hidden="true">◉</div>
+                        <div class="tool-card-info">
+                            <div class="tool-card-name">Frequency Scanner</div>
+                            <div class="tool-card-desc">Decrypt radio frequencies and analyze signal patterns</div>
+                            <div class="tool-card-status" aria-label="Status: Ready">● READY</div>
+                        </div>
+                        <button class="quick-access-btn" data-app="radio-decrypt" aria-label="Start Frequency Scanner">Scan Frequencies</button>
                     </div>
                 </div>
             </div>

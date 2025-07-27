@@ -255,7 +255,6 @@ body {
     display: flex;
     flex-direction: column;
     z-index: 10;
-    padding-bottom: 90px; /* Space for bottom navigation */
     box-sizing: border-box;
 }
 
@@ -434,6 +433,8 @@ body {
     padding: 0 var(--spacing-md);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    /* Ensure proper spacing above sticky navigation */
+    margin-bottom: var(--spacing-lg);
 }
 
 .app-section {
@@ -509,12 +510,23 @@ body {
 #contracts-content,
 #market-content, 
 #profile-content,
+#tools-content,
 .app-screen {
     padding-bottom: 90px !important;
     box-sizing: border-box;
 }
 
-/* Bottom Navigation */
+/* Home screen specific padding adjustment */
+#home-screen {
+    padding-bottom: 90px;
+}
+
+/* App grid bottom spacing to prevent overlap with fixed nav */
+.app-grid {
+    padding-bottom: var(--spacing-xl);
+}
+
+/* Bottom Navigation - Sticky positioning for scroll independence */
 .bottom-nav {
     height: 80px;
     background: rgba(0, 0, 0, 0.9);
@@ -524,11 +536,13 @@ body {
     align-items: center;
     justify-content: space-around;
     padding: var(--spacing-sm) var(--spacing-md);
-    position: absolute;
+    position: sticky;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 100;
+    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .nav-item {
@@ -542,6 +556,11 @@ body {
     transition: all var(--transition-fast);
     min-width: var(--touch-target-sm);
     min-height: var(--touch-target-sm);
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
 }
 
 .nav-item:hover,
@@ -1937,6 +1956,98 @@ input:focus-visible,
     font-family: 'JetBrains Mono', monospace;
 }
 
+/* Tools Screen Specific Styles */
+.tools-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+}
+
+.tool-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    border: 1px solid var(--border-primary);
+    min-height: 120px;
+    text-align: center;
+}
+
+.tool-card:hover,
+.tool-card:active {
+    background: var(--bg-elevated);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-large);
+    border-color: var(--accent-primary);
+}
+
+.tool-card-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glow-primary);
+    flex-shrink: 0;
+}
+
+.tool-card-info {
+    flex: 1;
+}
+
+.tool-card-name {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.tool-card-desc {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.tool-card-status {
+    font-size: var(--font-size-sm);
+    color: var(--accent-success);
+    font-weight: var(--font-weight-medium);
+    margin-top: var(--spacing-sm);
+}
+
+/* Quick access button styling */
+.quick-access-btn {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-small);
+    margin-top: var(--spacing-md);
+}
+
+.quick-access-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium), var(--glow-primary);
+}
+
+.quick-access-btn:active {
+    transform: translateY(0);
+}
+
 /* Touch feedback */
 @media (hover: none) and (pointer: coarse) {
     .app-card:active,
@@ -1946,7 +2057,8 @@ input:focus-visible,
     .stat-card:active,
     .metric-card:active,
     .contract-card:active,
-    .pricing-card:active {
+    .pricing-card:active,
+    .tool-card:active {
         transform: scale(0.98);
     }
 }
