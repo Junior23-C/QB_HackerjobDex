@@ -460,8 +460,11 @@ function setupPhoneEventHandlers() {
         // Bottom navigation
         $(document).on('click', '.nav-item', function() {
             const tabName = $(this).data('tab');
+            console.log('Nav item clicked:', tabName);
             if (tabName) {
                 switchBottomNav(tabName);
+            } else {
+                console.log('No tab name found for nav item');
             }
         });
 
@@ -610,25 +613,32 @@ function switchTab(tabName) {
 // Switch bottom navigation
 function switchBottomNav(tabName) {
     try {
+        console.log('switchBottomNav called with:', tabName);
+        
         // Update nav items
         $('.nav-item').removeClass('active');
         $(`.nav-item[data-tab="${tabName}"]`).addClass('active');
+        console.log('Updated nav item active state');
         
         // Hide all tab content
         $('.tab-content').addClass('hidden');
         $('.app-screen').addClass('hidden');
+        console.log('Hidden all content');
         
         // Show appropriate content based on tab
         switch (tabName) {
             case 'home':
+                console.log('Showing home screen');
                 $('#home-screen').removeClass('hidden');
                 activeAppScreen = null;
                 break;
             case 'contracts':
+                console.log('Showing contracts content');
                 $('#contracts-content').removeClass('hidden');
                 loadContracts();
                 break;
             case 'tools':
+                console.log('Showing tools (home screen with focus)');
                 // Keep the home screen visible with tools section focused
                 $('#home-screen').removeClass('hidden');
                 activeAppScreen = null;
@@ -641,10 +651,12 @@ function switchBottomNav(tabName) {
                 }, 100);
                 break;
             case 'market':
+                console.log('Showing market content');
                 $('#market-content').removeClass('hidden');
                 loadMarketData();
                 break;
             case 'profile':
+                console.log('Showing profile content');
                 $('#profile-content').removeClass('hidden');
                 loadProfileData();
                 break;

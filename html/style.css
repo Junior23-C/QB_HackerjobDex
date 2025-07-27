@@ -255,6 +255,8 @@ body {
     display: flex;
     flex-direction: column;
     z-index: 10;
+    padding-bottom: 90px; /* Space for bottom navigation */
+    box-sizing: border-box;
 }
 
 /* Status Bar */
@@ -502,6 +504,16 @@ body {
     color: var(--text-secondary);
 }
 
+/* Content areas padding for fixed navigation */
+.tab-content, 
+#contracts-content,
+#market-content, 
+#profile-content,
+.app-screen {
+    padding-bottom: 90px !important;
+    box-sizing: border-box;
+}
+
 /* Bottom Navigation */
 .bottom-nav {
     height: 80px;
@@ -512,8 +524,11 @@ body {
     align-items: center;
     justify-content: space-around;
     padding: var(--spacing-sm) var(--spacing-md);
-    position: relative;
-    z-index: 50;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
 }
 
 .nav-item {
