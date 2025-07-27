@@ -626,7 +626,11 @@ function switchBottomNav(tabName) {
                 break;
             case 'contracts':
                 $('#contracts-content').removeClass('hidden');
-                loadContracts();
+                safeLogInfo('Switching to contracts tab - loading contracts...');
+                // Add a small delay to ensure UI is ready
+                setTimeout(() => {
+                    loadContracts();
+                }, 100);
                 break;
             case 'tools':
                 // Show the home screen with hacking tools
@@ -697,13 +701,17 @@ function filterContracts(filter) {
 // Load contracts data
 function loadContracts() {
     try {
+        safeLogInfo('Loading contracts from server...');
         // Request contracts from server
         safePost('https://qb-hackerjob/getContracts', 
             {},
             function(response) {
+                safeLogInfo('Contracts response received:', response);
                 if (response && response.success && response.contracts) {
+                    safeLogInfo('Displaying ' + response.contracts.length + ' contracts');
                     displayContracts(response.contracts);
                 } else {
+                    safeLogInfo('No contracts in response or unsuccessful');
                     $('#available-contracts-list').html('<div class="empty-state"><div class="empty-icon">📋</div><p>No contracts available</p></div>');
                 }
             },
@@ -720,16 +728,19 @@ function loadContracts() {
 // Display contracts
 function displayContracts(contracts) {
     try {
+        safeLogInfo('DisplayContracts called with ' + contracts.length + ' contracts');
         const container = $('#available-contracts-list');
         container.empty();
         
         if (!contracts || contracts.length === 0) {
+            safeLogInfo('No contracts to display');
             container.html('<div class="empty-state"><div class="empty-icon">📋</div><p>No contracts available</p></div>');
             return;
         }
         
         // Display each contract
         contracts.forEach(contract => {
+            safeLogDebug('Displaying contract: ' + contract.title);
             const contractHtml = `
                 <div class="contract-card" data-contract-id="${contract.id}">
                     <div class="contract-header">

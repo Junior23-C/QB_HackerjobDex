@@ -9,36 +9,6 @@ local ContractSystem = {
     contractIdCounter = 1      -- Unique ID counter
 }
 
--- Refresh available contracts
-local function RefreshContracts()
-    print("^2[Contracts] ^7Refreshing available contracts")
-    
-    -- Clear expired contracts
-    local currentTime = os.time()
-    for i = #ContractSystem.activeContracts, 1, -1 do
-        local contract = ContractSystem.activeContracts[i]
-        if contract.expiresAt and contract.expiresAt < currentTime then
-            table.remove(ContractSystem.activeContracts, i)
-            print("^3[Contracts] ^7Removed expired contract: " .. contract.title)
-        end
-    end
-    
-    -- Generate new contracts to maintain target count
-    local targetContracts = Config.Contracts.maxActiveContracts or 6
-    local currentCount = #ContractSystem.activeContracts
-    local contractsToGenerate = targetContracts - currentCount
-    
-    for i = 1, contractsToGenerate do
-        local newContract = GenerateRandomContract()
-        if newContract then
-            table.insert(ContractSystem.activeContracts, newContract)
-            print("^2[Contracts] ^7Generated new contract: " .. newContract.title)
-        end
-    end
-    
-    ContractSystem.lastRefresh = currentTime
-    print("^2[Contracts] ^7Refresh complete. Active contracts: " .. #ContractSystem.activeContracts)
-end
 
 -- Check for expired player contracts
 local function CheckExpiredContracts()
@@ -114,29 +84,6 @@ function UpdateContractProgress(citizenid, operationType)
     end
 end
 
--- Initialize contract system
-local function InitializeContracts()
-    print("^2[Contracts] ^7System initialized")
-    
-    -- Generate initial contracts
-    RefreshContracts()
-    
-    -- Start contract refresh thread
-    Citizen.CreateThread(function()
-        while true do
-            Citizen.Wait(Config.Contracts.refreshInterval)
-            RefreshContracts()
-        end
-    end)
-    
-    -- Start contract expiry checking thread
-    Citizen.CreateThread(function()
-        while true do
-            Citizen.Wait(60000) -- Check every minute
-            CheckExpiredContracts()
-        end
-    end)
-end
 
 -- Generate unique contract ID
 local function GenerateContractId()
@@ -146,8 +93,9 @@ local function GenerateContractId()
 end
 
 -- Generate a random contract based on templates
-local function GenerateRandomContract()
+function GenerateRandomContract()
     if not Config.Contracts.templates or #Config.Contracts.templates == 0 then
+        print("^1[Contracts] ^7No contract templates found")
         return nil
     end
     
@@ -201,9 +149,15 @@ end
 function RefreshContracts()
     local currentTime = os.time()
     
+    -- Check if config is loaded
+    if not Config or not Config.Contracts then
+        print("^1[Contracts] ^7ERROR: Config not loaded, cannot refresh contracts")
+        return
+    end
+    
     -- Remove expired contracts
     local newActiveContracts = {}
-    for _, contract in ipairs(ContractSystem.activeContracts) do
+    for _, contract in ipairs(ContractSystem.activeContracts or {}) do
         if contract.expiresAt > currentTime and contract.status == "available" then
             table.insert(newActiveContracts, contract)
         end
@@ -211,12 +165,19 @@ function RefreshContracts()
     ContractSystem.activeContracts = newActiveContracts
     
     -- Generate new contracts if needed
-    local contractsNeeded = Config.Contracts.maxActiveContracts - #ContractSystem.activeContracts
+    local maxContracts = Config.Contracts.maxActiveContracts or 6
+    local contractsNeeded = maxContracts - #ContractSystem.activeContracts
+    
+    print(string.format("^2[Contracts] ^7Need to generate %d contracts (current: %d, max: %d)", 
+        contractsNeeded, #ContractSystem.activeContracts, maxContracts))
     
     for i = 1, contractsNeeded do
         local contract = GenerateRandomContract()
         if contract then
             table.insert(ContractSystem.activeContracts, contract)
+            print("^2[Contracts] ^7Generated contract: " .. contract.title)
+        else
+            print("^3[Contracts] ^7Failed to generate contract #" .. i)
         end
     end
     
@@ -515,9 +476,30 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getContracts', function(sou
         return
     end
     
+    -- Filter contracts by player level
+    local playerLevel = (Player.PlayerData.metadata and Player.PlayerData.metadata.hackerLevel) or 1
+    local availableContracts = {}
+    
+    -- Ensure activeContracts exists and is populated
+    if not ContractSystem.activeContracts or #ContractSystem.activeContracts == 0 then
+        RefreshContracts()
+    end
+    
+    for _, contract in ipairs(ContractSystem.activeContracts or {}) do
+        if contract.status == "available" and 
+           playerLevel >= (contract.minLevel or 1) and 
+           playerLevel <= (contract.maxLevel or 5) then
+            -- Ensure all required fields are present for UI
+            contract.reward = contract.reward or 1000
+            contract.difficulty = contract.difficulty or 1
+            contract.objectives = contract.objectives or {}
+            table.insert(availableContracts, contract)
+        end
+    end
+    
     cb({
         success = true,
-        contracts = ContractSystem.activeContracts or {}
+        contracts = availableContracts
     })
 end)
 
@@ -534,6 +516,30 @@ QBCore.Commands.Add('refreshcontracts', 'Force refresh available contracts (Admi
     TriggerClientEvent('QBCore:Notify', src, 'Contracts refreshed successfully', 'success')
 end, 'admin')
 
+-- Initialize contract system
+local function InitializeContracts()
+    print("^2[Contracts] ^7System initialized")
+    
+    -- Generate initial contracts
+    RefreshContracts()
+    
+    -- Start contract refresh thread
+    Citizen.CreateThread(function()
+        while true do
+            Citizen.Wait(Config.Contracts.refreshInterval)
+            RefreshContracts()
+        end
+    end)
+    
+    -- Start contract expiry checking thread
+    Citizen.CreateThread(function()
+        while true do
+            Citizen.Wait(60000) -- Check every minute
+            CheckExpiredContracts()
+        end
+    end)
+end
+
 -- Export functions
 exports('UpdateContractProgress', UpdateContractProgress)
 exports('GetPlayerContracts', function(citizenid) 
@@ -549,6 +555,9 @@ Citizen.CreateThread(function()
     while not MySQL do
         Citizen.Wait(100)
     end
+    
+    -- Wait for configs to load
+    Citizen.Wait(1000)
     
     -- Create contract logs table if it doesn't exist
     MySQL.query([[
@@ -569,6 +578,14 @@ Citizen.CreateThread(function()
             KEY `completed_at` (`completed_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]])
+    
+    -- Debug config loading
+    if Config and Config.Contracts then
+        print("^2[Contracts] ^7Config loaded - Templates: " .. tostring(#Config.Contracts.templates))
+        print("^2[Contracts] ^7Config loaded - Categories: " .. tostring(next(Config.Contracts.categories) ~= nil))
+    else
+        print("^1[Contracts] ^7ERROR: Config not loaded properly!")
+    end
     
     InitializeContracts()
     print("^2[Contracts] ^7System initialized successfully")

@@ -1587,9 +1587,15 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getDashboardStats', functio
     
     -- Get active contracts (with error handling)
     local playerContracts = {}
-    pcall(function()
-        playerContracts = exports['qb-hackerjob']:GetPlayerContracts(citizenid) or {}
+    local success = pcall(function()
+        if exports['qb-hackerjob'] and exports['qb-hackerjob']:GetPlayerContracts then
+            playerContracts = exports['qb-hackerjob']:GetPlayerContracts(citizenid) or {}
+        end
     end)
+    if not success then
+        print("^3[Dashboard] ^7Failed to get player contracts, using empty array")
+        playerContracts = {}
+    end
     local activeContracts = #playerContracts
     
     -- Calculate success rate (placeholder)
