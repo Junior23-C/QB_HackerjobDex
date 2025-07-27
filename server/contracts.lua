@@ -116,7 +116,8 @@ end
 
 -- Initialize contract system
 local function InitializeContracts()
-    print("^2[Contracts] ^7System initialized")
+    print("^2[Contracts] ^7System initializing...")
+    print("^2[Contracts] ^7Contract templates found: " .. #Config.Contracts.templates)
     
     -- Generate initial contracts
     RefreshContracts()
@@ -148,6 +149,7 @@ end
 -- Generate a random contract based on templates
 local function GenerateRandomContract()
     if not Config.Contracts.templates or #Config.Contracts.templates == 0 then
+        print("^1[Contracts] ^7No contract templates found!")
         return nil
     end
     
@@ -514,6 +516,8 @@ QBCore.Functions.CreateCallback('qb-hackerjob:server:getContracts', function(sou
         cb({ success = false, message = "Player not found" })
         return
     end
+    
+    print("^3[Contracts] ^7Getting contracts for player " .. source .. ". Active contracts: " .. #ContractSystem.activeContracts)
     
     cb({
         success = true,
