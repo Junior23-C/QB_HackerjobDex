@@ -1300,7 +1300,7 @@ function openPhone(data) {
                     bootScreen.addClass('hidden');
                 }
                 if (homeScreen.length > 0) {
-                    homeScreen.removeClass('hidden');
+                    homeScreen.removeClass('hidden').addClass('visible');
                 }
                 
                 safeLogDebug('Phone opened successfully without animations');
@@ -1361,7 +1361,7 @@ function openPhone(data) {
                                     bootScreenElement.addClass('hidden');
                                 }
                                 if (homeScreenElement.length > 0) {
-                                    homeScreenElement.removeClass('hidden');
+                                    homeScreenElement.removeClass('hidden').addClass('visible');
                                 }
                                 
                                 safeLogInfo('Laptop boot sequence completed successfully');
@@ -1376,7 +1376,7 @@ function openPhone(data) {
                     // Force show home screen as fallback
                     try {
                         $('#boot-screen').addClass('hidden');
-                        $('#home-screen').removeClass('hidden');
+                        $('#home-screen').removeClass('hidden').addClass('visible');
                     } catch (e) {
                         safeLogError('Critical error during boot fallback: ' + e.message);
                     }
@@ -1387,7 +1387,7 @@ function openPhone(data) {
             // Fallback to direct home screen show
             try {
                 $('#boot-screen').addClass('hidden');
-                $('#home-screen').removeClass('hidden');
+                $('#home-screen').removeClass('hidden').addClass('visible');
             } catch (e) {
                 safeLogError('Critical error during boot fallback: ' + e.message);
             }
